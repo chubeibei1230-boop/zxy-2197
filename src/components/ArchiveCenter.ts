@@ -4,6 +4,8 @@ import {
   getArchivedBooks,
   getArchivedTopics,
   getArchivedAuthors,
+  getAllTopics,
+  getAllAuthors,
   unarchiveBook,
   batchUnarchiveBooks,
   deleteBook
@@ -144,8 +146,9 @@ export function createArchiveCenter(options: ArchiveCenterOptions): HTMLElement 
     const section = el('section', 'archive-filter-section')
     const panel = el('div', 'archive-filter-panel')
 
-    const topics = getArchivedTopics()
-    const authors = getArchivedAuthors()
+    const useAll = state.filters.archiveStatus === 'all'
+    const topics = useAll ? getAllTopics() : getArchivedTopics()
+    const authors = useAll ? getAllAuthors() : getArchivedAuthors()
 
     const searchGroup = el('div', 'filter-group filter-search-group')
     const searchLabel = el('label', 'filter-label', '🔍 关键词搜索')
@@ -176,8 +179,8 @@ export function createArchiveCenter(options: ArchiveCenterOptions): HTMLElement 
     const archiveGroup = createSelectGroup(
       '归档范围',
       'archiveStatus',
-      ['archived', 'all'],
-      ['仅归档书籍', '全部书籍(含未归档)'],
+      ['archived'],
+      ['仅归档书籍'],
       state.filters.archiveStatus
     )
 
@@ -351,8 +354,9 @@ export function createArchiveCenter(options: ArchiveCenterOptions): HTMLElement 
     section.appendChild(grid)
 
     const countInfo = el('div', 'list-footer')
-    const allCount = getArchivedBooks().length
-    countInfo.textContent = `当前显示 ${books.length} / 共 ${allCount} 本归档书籍`
+    const sourceBooks = state.filters.archiveStatus === 'all' ? getBooks() : getArchivedBooks()
+    const allCount = sourceBooks.length
+    countInfo.textContent = `当前显示 ${books.length} / 共 ${allCount} 本${state.filters.archiveStatus === 'all' ? '书籍（含未归档）' : '归档书籍'}`
     section.appendChild(countInfo)
 
     return section

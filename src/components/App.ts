@@ -362,10 +362,23 @@ export class App {
 
     section.appendChild(grid)
 
-    const totalCount = getActiveBooks().length
+    const activeBooks = getActiveBooks()
+    const totalCount = activeBooks.length
     const archivedCount = getArchivedBooks().length
+    const inProgressCount = activeBooks.filter(b =>
+      b.status === 'not_started' || b.status === 'reading' || b.status === 'paused' || b.status === 'reviewing'
+    ).length
+    const completedUnarchivedCount = activeBooks.filter(b =>
+      b.status === 'completed' || b.status === 'reviewed'
+    ).length
     const countInfo = el('div', 'list-footer')
-    countInfo.textContent = `共 ${books.length} / ${totalCount} 本进行中${archivedCount > 0 ? ` · ${archivedCount} 本已归档` : ''}`
+    let text = `共显示 ${books.length} / ${totalCount} 本活跃书籍`
+    const parts: string[] = []
+    if (inProgressCount > 0) parts.push(`${inProgressCount}本进行中`)
+    if (completedUnarchivedCount > 0) parts.push(`${completedUnarchivedCount}本已完成`)
+    if (parts.length > 0) text += `（${parts.join(' · ')}）`
+    if (archivedCount > 0) text += ` · ${archivedCount}本已归档`
+    countInfo.textContent = text
     section.appendChild(countInfo)
 
     return section
