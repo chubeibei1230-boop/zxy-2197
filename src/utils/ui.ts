@@ -1,4 +1,4 @@
-import type { ReadingStatus } from '../types/book'
+import type { ReadingStatus, ReviewStatus } from '../types/book'
 
 export const STATUS_LABELS: Record<ReadingStatus, string> = {
   not_started: '未开始',
@@ -14,6 +14,18 @@ export const STATUS_COLORS: Record<ReadingStatus, string> = {
   reading: '#3b82f6',
   completed: '#22c55e',
   paused: '#f59e0b',
+  reviewing: '#8b5cf6',
+  reviewed: '#059669'
+}
+
+export const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
+  pending: '待复盘',
+  reviewing: '复盘中',
+  reviewed: '已复盘'
+}
+
+export const REVIEW_STATUS_COLORS: Record<ReviewStatus, string> = {
+  pending: '#f59e0b',
   reviewing: '#8b5cf6',
   reviewed: '#059669'
 }

@@ -1,7 +1,8 @@
 import type { Book } from '../types/book'
 import { calculateProgress } from '../services/validation'
 import { getNextPendingMilestone } from '../services/storage'
-import { STATUS_LABELS, STATUS_COLORS, formatDate, getDaysUntil, el } from '../utils/ui'
+import { getReviewSummary } from '../services/filter'
+import { STATUS_LABELS, STATUS_COLORS, REVIEW_STATUS_LABELS, REVIEW_STATUS_COLORS, formatDate, getDaysUntil, el } from '../utils/ui'
 
 export interface BookCardOptions {
   book: Book
@@ -53,6 +54,15 @@ export function createBookCard(options: BookCardOptions): HTMLElement {
   statusBadge.style.backgroundColor = STATUS_COLORS[book.status] + '20'
   statusBadge.style.color = STATUS_COLORS[book.status]
   statusRow.appendChild(statusBadge)
+
+  if (book.status === 'completed' || book.status === 'reviewing' || book.status === 'reviewed') {
+    const reviewStatusBadge = el('span', 'status-badge', REVIEW_STATUS_LABELS[book.reviewStatus])
+    reviewStatusBadge.style.backgroundColor = REVIEW_STATUS_COLORS[book.reviewStatus] + '20'
+    reviewStatusBadge.style.color = REVIEW_STATUS_COLORS[book.reviewStatus]
+    reviewStatusBadge.style.marginBottom = '0'
+    reviewStatusBadge.style.marginRight = '8px'
+    statusRow.appendChild(reviewStatusBadge)
+  }
 
   if (book.isArchived) {
     const archivedBadge = el('span', 'status-badge archived-badge', '📦 已归档')
@@ -109,6 +119,31 @@ export function createBookCard(options: BookCardOptions): HTMLElement {
     info.appendChild(archivedEl)
   }
 
+  if (book.status === 'completed' || book.status === 'reviewing' || book.status === 'reviewed') {
+    const summary = getReviewSummary(book)
+    const completenessSection = el('div', 'book-review')
+    const completenessLabel = el('span', 'review-label', `📊 复盘完整度 ${summary.reviewCompleteness}%`)
+    completenessSection.appendChild(completenessLabel)
+    info.appendChild(completenessSection)
+  }
+
+  if (book.recommendationRating > 0) {
+    const ratingSection = el('div', 'book-highlights')
+    const ratingLabel = el('span', 'highlights-label', `⭐ ${'★'.repeat(book.recommendationRating)}`)
+    ratingSection.appendChild(ratingLabel)
+    info.appendChild(ratingSection)
+  }
+
+  if (book.oneLineSummary?.trim()) {
+    const summarySection = el('div', 'book-review')
+    const summaryText = book.oneLineSummary.length > 30 
+      ? book.oneLineSummary.substring(0, 30) + '...' 
+      : book.oneLineSummary
+    const summaryLabel = el('span', 'review-label', `💡 ${summaryText}`)
+    summarySection.appendChild(summaryLabel)
+    info.appendChild(summarySection)
+  }
+
   if (book.highlights.trim()) {
     const highlightsSection = el('div', 'book-highlights')
     const highlightsLabel = el('span', 'highlights-label', '📝 有摘录')
@@ -118,7 +153,7 @@ export function createBookCard(options: BookCardOptions): HTMLElement {
 
   if (book.reviewNotes.trim()) {
     const reviewSection = el('div', 'book-review')
-    const reviewLabel = el('span', 'review-label', '💭 有复盘')
+    const reviewLabel = el('span', 'review-label', '💭 有复盘备注')
     reviewSection.appendChild(reviewLabel)
     info.appendChild(reviewSection)
   }

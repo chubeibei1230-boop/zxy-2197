@@ -1,7 +1,7 @@
 import type { WeeklyPlanItem } from '../types/book'
 import { getWeeklyPlan, getTotalRemainingChapters } from '../services/validation'
 import { getNextPendingMilestone } from '../services/storage'
-import { STATUS_LABELS, STATUS_COLORS, formatDate, getDaysUntil, el } from '../utils/ui'
+import { STATUS_LABELS, STATUS_COLORS, REVIEW_STATUS_LABELS, REVIEW_STATUS_COLORS, formatDate, getDaysUntil, el } from '../utils/ui'
 
 export function createWeeklyView(): HTMLElement {
   const container = el('div', 'weekly-view')
@@ -63,8 +63,16 @@ function createWeeklyItemCard(item: WeeklyPlanItem, rank: number): HTMLElement {
   statusBadge.style.backgroundColor = STATUS_COLORS[book.status] + '20'
   statusBadge.style.color = STATUS_COLORS[book.status]
   
+  let reviewStatusBadge: HTMLElement | null = null
+  if (book.status === 'completed' || book.status === 'reviewing' || book.status === 'reviewed') {
+    reviewStatusBadge = el('span', 'status-badge-sm', REVIEW_STATUS_LABELS[book.reviewStatus])
+    reviewStatusBadge.style.backgroundColor = REVIEW_STATUS_COLORS[book.reviewStatus] + '20'
+    reviewStatusBadge.style.color = REVIEW_STATUS_COLORS[book.reviewStatus]
+  }
+  
   header.appendChild(title)
   header.appendChild(statusBadge)
+  if (reviewStatusBadge) header.appendChild(reviewStatusBadge)
 
   const meta = el('div', 'weekly-item-meta')
   const author = el('span', 'weekly-item-author', book.author || '未知作者')

@@ -1,12 +1,11 @@
 import type { Book, Milestone, MilestoneFilterOptions } from '../types/book'
 import {
-  getBooks,
   getMilestonesByCategory,
   batchCompleteMilestones,
   updateMilestone
 } from '../services/storage'
 import { showMilestoneForm } from './MilestoneForm'
-import { STATUS_LABELS, STATUS_COLORS, formatDate, getDaysUntil, el } from '../utils/ui'
+import { STATUS_LABELS, REVIEW_STATUS_LABELS, REVIEW_STATUS_COLORS, formatDate, getDaysUntil, el } from '../utils/ui'
 
 export interface MilestoneCenterOptions {
   onBack: () => void
@@ -301,8 +300,14 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
     bookLink.style.cursor = 'pointer'
     bookLink.style.color = 'var(--primary-color)'
     bookLink.addEventListener('click', () => onBookView(book))
-    const bookMeta = el('span', 'milestone-book-meta',
-      `${book.author || '未知作者'} · ${STATUS_LABELS[book.status]}`)
+    const bookMetaText = book.status === 'completed' || book.status === 'reviewing' || book.status === 'reviewed'
+      ? `${book.author || '未知作者'} · ${STATUS_LABELS[book.status]} · ${REVIEW_STATUS_LABELS[book.reviewStatus]}`
+      : `${book.author || '未知作者'} · ${STATUS_LABELS[book.status]}`
+    const bookMeta = el('span', 'milestone-book-meta', bookMetaText)
+    if (book.status === 'completed' || book.status === 'reviewing' || book.status === 'reviewed') {
+      bookMeta.style.borderLeft = `3px solid ${REVIEW_STATUS_COLORS[book.reviewStatus]}`
+      bookMeta.style.paddingLeft = '8px'
+    }
     bookInfo.appendChild(bookLink)
     bookInfo.appendChild(bookMeta)
 

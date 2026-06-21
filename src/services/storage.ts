@@ -1,4 +1,4 @@
-import type { Book, Milestone } from '../types/book'
+import type { Book, Milestone, ReviewStatus } from '../types/book'
 
 const STORAGE_KEY = 'reading_plan_books'
 
@@ -15,6 +15,13 @@ export function getBooks(): Book[] {
       isArchived: book.isArchived ?? false,
       archivedAt: book.archivedAt ?? null,
       completedAt: book.completedAt ?? null,
+      reviewConclusion: book.reviewConclusion ?? '',
+      reviewInsights: book.reviewInsights ?? '',
+      recommendationRating: book.recommendationRating ?? 0,
+      oneLineSummary: book.oneLineSummary ?? '',
+      reviewStatus: book.reviewStatus ?? getDefaultReviewStatus(book.status, book.reviewNotes),
+      reviewStartedAt: book.reviewStartedAt ?? null,
+      reviewCompletedAt: book.reviewCompletedAt ?? null,
       milestones: (book.milestones ?? []).map((m: Milestone) => ({
         ...m,
         status: m.status ?? 'pending',
@@ -27,6 +34,15 @@ export function getBooks(): Book[] {
   } catch {
     return []
   }
+}
+
+function getDefaultReviewStatus(readingStatus: Book['status'], reviewNotes: string): ReviewStatus {
+  if (readingStatus === 'reviewed') return 'reviewed'
+  if (readingStatus === 'reviewing') return 'reviewing'
+  if (readingStatus === 'completed') {
+    return reviewNotes?.trim() ? 'reviewing' : 'pending'
+  }
+  return 'pending'
 }
 
 export function getActiveBooks(): Book[] {
@@ -42,19 +58,33 @@ export function saveBooks(books: Book[]): void {
 }
 
 export function addBook(
-  book: Omit<Book, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'archivedAt' | 'completedAt' | 'milestones'>,
+  book: Omit<Book, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'archivedAt' | 'completedAt' | 'milestones' | 'reviewConclusion' | 'reviewInsights' | 'recommendationRating' | 'oneLineSummary' | 'reviewStatus' | 'reviewStartedAt' | 'reviewCompletedAt'> & Partial<Pick<Book, 'reviewConclusion' | 'reviewInsights' | 'recommendationRating' | 'oneLineSummary' | 'reviewStatus'>>,
   milestones?: Milestone[]
 ): Book {
   const books = getBooks()
   const now = new Date().toISOString()
   const completedAt = (book.status === 'completed' || book.status === 'reviewed') ? now : null
+  const defaultReviewStatus: ReviewStatus = book.reviewStatus ?? 
+    (book.status === 'reviewed' ? 'reviewed' : 
+     book.status === 'reviewing' ? 'reviewing' :
+     book.status === 'completed' ? (book.reviewNotes?.trim() ? 'reviewing' : 'pending') : 'pending')
+  const reviewStartedAt = (defaultReviewStatus === 'reviewing' || defaultReviewStatus === 'reviewed') ? now : null
+  const reviewCompletedAt = defaultReviewStatus === 'reviewed' ? now : null
+  
   let finalMilestones: Milestone[] = (milestones || []).map(m => ({
     ...m,
     createdAt: m.createdAt || now,
     updatedAt: now
   }))
   const newBook: Book = {
+    reviewConclusion: '',
+    reviewInsights: '',
+    recommendationRating: 0,
+    oneLineSummary: '',
     ...book,
+    reviewStatus: defaultReviewStatus,
+    reviewStartedAt,
+    reviewCompletedAt,
     id: generateId(),
     createdAt: now,
     updatedAt: now,
@@ -83,11 +113,37 @@ export function updateBook(id: string, updates: Partial<Book>): Book | null {
     completedAt = null
   }
 
+  let reviewStartedAt = original.reviewStartedAt
+  let reviewCompletedAt = original.reviewCompletedAt
+  const newReviewStatus = updates.reviewStatus ?? original.reviewStatus
+  
+  if (updates.reviewStatus !== undefined && updates.reviewStatus !== original.reviewStatus) {
+    if (newReviewStatus === 'reviewing' && !reviewStartedAt) {
+      reviewStartedAt = now
+    }
+    if (newReviewStatus === 'reviewed') {
+      if (!reviewStartedAt) reviewStartedAt = now
+      reviewCompletedAt = now
+    }
+    if (newReviewStatus === 'pending') {
+      reviewCompletedAt = null
+    }
+  }
+
+  if (updates.status !== undefined) {
+    if (updates.status === 'reviewing' && newReviewStatus === 'pending') {
+      reviewStartedAt = now
+    }
+    if (updates.status === 'reviewed') {
+      if (!reviewStartedAt) reviewStartedAt = now
+      reviewCompletedAt = now
+    }
+  }
+
   let milestones: Milestone[] = updates.milestones !== undefined
     ? [...updates.milestones]
     : [...(original.milestones || [])]
 
-  const statusChanged = updates.status !== undefined && updates.status !== original.status
   const progressChanged = updates.readChapters !== undefined || updates.totalChapters !== undefined
 
   if (progressChanged) {
@@ -129,6 +185,8 @@ export function updateBook(id: string, updates: Partial<Book>): Book | null {
     createdAt: books[index].createdAt,
     updatedAt: now,
     completedAt,
+    reviewStartedAt,
+    reviewCompletedAt,
     milestones
   }
   saveBooks(books)
@@ -324,7 +382,6 @@ export function getAllMilestones(): { book: Book; milestone: Milestone }[] {
 }
 
 export function getNextPendingMilestone(book: Book): Milestone | null {
-  const now = new Date().toISOString().split('T')[0]
   const pending = (book.milestones || [])
     .filter(m => m.status === 'pending')
     .sort((a, b) => {
@@ -366,4 +423,64 @@ export function getArchivedAuthors(): string[] {
   const books = getArchivedBooks()
   const authors = new Set(books.map(b => b.author).filter(t => t))
   return Array.from(authors).sort()
+}
+
+export function getReviewableBooks(): Book[] {
+  return getBooks().filter(book => 
+    book.status === 'completed' || 
+    book.status === 'reviewing' || 
+    book.status === 'reviewed'
+  )
+}
+
+export function getBooksByReviewStatus(status: ReviewStatus): Book[] {
+  return getReviewableBooks().filter(book => book.reviewStatus === status)
+}
+
+export function getReviewTopics(): string[] {
+  const books = getReviewableBooks()
+  const topics = new Set(books.map(b => b.topic).filter(t => t))
+  return Array.from(topics).sort()
+}
+
+export function getReviewAuthors(): string[] {
+  const books = getReviewableBooks()
+  const authors = new Set(books.map(b => b.author).filter(t => t))
+  return Array.from(authors).sort()
+}
+
+export function updateReviewStatus(bookId: string, status: ReviewStatus): Book | null {
+  return updateBook(bookId, { reviewStatus: status })
+}
+
+export function batchUpdateReviewStatus(ids: string[], status: ReviewStatus): void {
+  const books = getBooks()
+  const now = new Date().toISOString()
+  const updated = books.map(book => {
+    if (ids.includes(book.id)) {
+      let reviewStartedAt = book.reviewStartedAt
+      let reviewCompletedAt = book.reviewCompletedAt
+      
+      if (status === 'reviewing' && !reviewStartedAt) {
+        reviewStartedAt = now
+      }
+      if (status === 'reviewed') {
+        if (!reviewStartedAt) reviewStartedAt = now
+        reviewCompletedAt = now
+      }
+      if (status === 'pending') {
+        reviewCompletedAt = null
+      }
+      
+      return { 
+        ...book, 
+        reviewStatus: status, 
+        updatedAt: now,
+        reviewStartedAt,
+        reviewCompletedAt
+      }
+    }
+    return book
+  })
+  saveBooks(updated)
 }

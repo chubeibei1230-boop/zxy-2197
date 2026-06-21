@@ -1,7 +1,7 @@
-import type { Book, ReadingStatus, Milestone } from '../types/book'
-import { addBook, updateBook, getBookById } from '../services/storage'
+import type { Book, ReadingStatus, Milestone, ReviewStatus } from '../types/book'
+import { addBook, updateBook } from '../services/storage'
 import { showMilestoneForm } from './MilestoneForm'
-import { formatDate, getDaysUntil, el } from '../utils/ui'
+import { formatDate, getDaysUntil, REVIEW_STATUS_LABELS, el } from '../utils/ui'
 
 export interface BookFormOptions {
   book?: Book
@@ -112,6 +112,60 @@ export function showBookForm(options: BookFormOptions): void {
   const highlightsGroup = createTextareaGroup('重点摘录', 'highlights', book?.highlights || '', 4)
   const reviewGroup = createTextareaGroup('复盘备注', 'reviewNotes', book?.reviewNotes || '', 4)
 
+  const reviewSection = el('div', 'form-group milestone-form-section')
+  const reviewHeader = el('div', 'milestone-form-header')
+  const reviewTitle = el('label', 'form-label', '💭 复盘内容')
+  reviewHeader.appendChild(reviewTitle)
+  reviewSection.appendChild(reviewHeader)
+
+  const reviewStatusGroup = el('div', 'form-group')
+  const reviewStatusLabel = el('label', 'form-label', '复盘状态')
+  const reviewStatusSelect = el('select', 'form-input') as HTMLSelectElement
+  reviewStatusSelect.name = 'reviewStatus'
+  const reviewStatusOptions: { value: ReviewStatus; label: string }[] = [
+    { value: 'pending', label: REVIEW_STATUS_LABELS.pending },
+    { value: 'reviewing', label: REVIEW_STATUS_LABELS.reviewing },
+    { value: 'reviewed', label: REVIEW_STATUS_LABELS.reviewed }
+  ]
+  reviewStatusOptions.forEach(opt => {
+    const option = document.createElement('option')
+    option.value = opt.value
+    option.textContent = opt.label
+    if (book?.reviewStatus === opt.value) option.selected = true
+    reviewStatusSelect.appendChild(option)
+  })
+  reviewStatusGroup.appendChild(reviewStatusLabel)
+  reviewStatusGroup.appendChild(reviewStatusSelect)
+
+  const ratingGroup = el('div', 'form-group')
+  const ratingLabel = el('label', 'form-label', '推荐指数（1-5星）')
+  const ratingStars = el('div', 'rating-stars')
+  for (let i = 1; i <= 5; i++) {
+    const star = el('button', `rating-star ${i <= (book?.recommendationRating || 0) ? 'active' : ''}`, '★') as HTMLButtonElement
+    star.type = 'button'
+    star.dataset.rating = i.toString()
+    star.addEventListener('click', () => {
+      document.querySelectorAll('.rating-star').forEach((s, idx) => {
+        s.classList.toggle('active', idx < i)
+      })
+    })
+    ratingStars.appendChild(star)
+  }
+  ratingGroup.appendChild(ratingLabel)
+  ratingGroup.appendChild(ratingStars)
+
+  const conclusionGroup = createTextareaGroup('复盘结论', 'reviewConclusion', book?.reviewConclusion || '', 3)
+  const insightsGroup = createTextareaGroup('阅读收获', 'reviewInsights', book?.reviewInsights || '', 3)
+  const summaryGroup = createFormGroup('一句话总结', 'text', 'oneLineSummary', book?.oneLineSummary || '')
+  const summaryHint = el('span', 'form-hint', '用一句话概括这本书的价值，最多100字')
+  summaryGroup.appendChild(summaryHint)
+
+  reviewSection.appendChild(reviewStatusGroup)
+  reviewSection.appendChild(ratingGroup)
+  reviewSection.appendChild(conclusionGroup)
+  reviewSection.appendChild(insightsGroup)
+  reviewSection.appendChild(summaryGroup)
+
   const footer = el('div', 'modal-footer')
   const cancelBtn = el('button', 'btn btn-secondary', '取消') as HTMLButtonElement
   cancelBtn.type = 'button'
@@ -131,6 +185,7 @@ export function showBookForm(options: BookFormOptions): void {
   form.appendChild(milestoneSection)
   form.appendChild(highlightsGroup)
   form.appendChild(reviewGroup)
+  form.appendChild(reviewSection)
   form.appendChild(footer)
 
   modal.appendChild(header)
@@ -184,6 +239,7 @@ export function showBookForm(options: BookFormOptions): void {
       }
     })
 
+    const rating = document.querySelectorAll('.rating-star.active').length
     const bookData = {
       title,
       author: (formData.get('author') as string).trim(),
@@ -194,6 +250,11 @@ export function showBookForm(options: BookFormOptions): void {
       status: formData.get('status') as ReadingStatus,
       highlights: formData.get('highlights') as string,
       reviewNotes: formData.get('reviewNotes') as string,
+      reviewConclusion: formData.get('reviewConclusion') as string,
+      reviewInsights: formData.get('reviewInsights') as string,
+      recommendationRating: rating,
+      oneLineSummary: (formData.get('oneLineSummary') as string).trim(),
+      reviewStatus: formData.get('reviewStatus') as ReviewStatus,
       isFavorite: formData.get('isFavorite') === 'on'
     }
 

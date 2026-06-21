@@ -43,7 +43,8 @@ export function exportToCSV(books?: Book[]): void {
   const exportBooks = books ?? getActiveBooks()
   const headers = [
     '书名', '作者', '主题', '总章节数', '已读章节',
-    '计划完成日期', '阅读状态', '重点摘录', '复盘备注',
+    '计划完成日期', '阅读状态', '复盘状态', '推荐指数',
+    '一句话总结', '复盘结论', '阅读收获', '重点摘录', '复盘备注',
     '是否收藏', '里程碑数', '里程碑概要', '创建时间', '更新时间'
   ]
   
@@ -52,6 +53,12 @@ export function exportToCSV(books?: Book[]): void {
     reading: '阅读中',
     completed: '已完成',
     paused: '已暂停',
+    reviewing: '复盘中',
+    reviewed: '已复盘'
+  }
+
+  const reviewStatusMap: Record<string, string> = {
+    pending: '待复盘',
     reviewing: '复盘中',
     reviewed: '已复盘'
   }
@@ -69,6 +76,11 @@ export function exportToCSV(books?: Book[]): void {
       book.readChapters.toString(),
       book.plannedDate,
       statusMap[book.status] || book.status,
+      reviewStatusMap[book.reviewStatus] || book.reviewStatus,
+      book.recommendationRating > 0 ? '★'.repeat(book.recommendationRating) : '',
+      escapeCSV(book.oneLineSummary || ''),
+      escapeCSV(book.reviewConclusion || ''),
+      escapeCSV(book.reviewInsights || ''),
       escapeCSV(book.highlights),
       escapeCSV(book.reviewNotes),
       book.isFavorite ? '是' : '否',
@@ -92,7 +104,9 @@ export function exportArchivedToCSV(books?: Book[]): void {
   const exportBooks = books ?? getArchivedBooks()
   const headers = [
     '书名', '作者', '主题', '总章节数', '最终已读章节', '最终进度(%)',
-    '计划完成日期', '阅读状态', '完成时间', '归档时间',
+    '计划完成日期', '阅读状态', '复盘状态', '推荐指数',
+    '一句话总结', '复盘结论', '阅读收获',
+    '完成时间', '归档时间', '复盘开始时间', '复盘完成时间',
     '重点摘录(行数)', '重点摘录内容', '复盘备注',
     '是否收藏', '里程碑数', '里程碑概要', '创建时间', '更新时间'
   ]
@@ -102,6 +116,12 @@ export function exportArchivedToCSV(books?: Book[]): void {
     reading: '阅读中',
     completed: '已完成',
     paused: '已暂停',
+    reviewing: '复盘中',
+    reviewed: '已复盘'
+  }
+
+  const reviewStatusMap: Record<string, string> = {
+    pending: '待复盘',
     reviewing: '复盘中',
     reviewed: '已复盘'
   }
@@ -126,8 +146,15 @@ export function exportArchivedToCSV(books?: Book[]): void {
       progress.toString(),
       book.plannedDate,
       statusMap[book.status] || book.status,
+      reviewStatusMap[book.reviewStatus] || book.reviewStatus,
+      book.recommendationRating > 0 ? '★'.repeat(book.recommendationRating) : '',
+      escapeCSV(book.oneLineSummary || ''),
+      escapeCSV(book.reviewConclusion || ''),
+      escapeCSV(book.reviewInsights || ''),
       book.completedAt || '',
       book.archivedAt || '',
+      book.reviewStartedAt || '',
+      book.reviewCompletedAt || '',
       highlightsCount.toString(),
       escapeCSV(book.highlights),
       escapeCSV(book.reviewNotes),
@@ -190,6 +217,13 @@ export function importFromJSON(file: File): Promise<Book[]> {
           isArchived: book.isArchived ?? false,
           archivedAt: book.archivedAt ?? null,
           completedAt: book.completedAt ?? null,
+          reviewConclusion: book.reviewConclusion ?? '',
+          reviewInsights: book.reviewInsights ?? '',
+          recommendationRating: book.recommendationRating ?? 0,
+          oneLineSummary: book.oneLineSummary ?? '',
+          reviewStatus: book.reviewStatus ?? 'pending',
+          reviewStartedAt: book.reviewStartedAt ?? null,
+          reviewCompletedAt: book.reviewCompletedAt ?? null,
           milestones: (book.milestones ?? []).map((m: any) => ({
             ...m,
             status: m.status ?? 'pending',

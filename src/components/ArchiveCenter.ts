@@ -13,7 +13,7 @@ import {
 import { filterArchivedBooks, sortBooks, getArchiveSummary } from '../services/filter'
 import { exportArchivedToJSON, exportArchivedToCSV } from '../services/export'
 import { createBookCard } from './BookCard'
-import { STATUS_LABELS, STATUS_COLORS, formatDate, el } from '../utils/ui'
+import { STATUS_LABELS, STATUS_COLORS, REVIEW_STATUS_LABELS, REVIEW_STATUS_COLORS, formatDate, el } from '../utils/ui'
 
 export interface ArchiveCenterOptions {
   onBookView: (book: Book) => void
@@ -382,7 +382,9 @@ export function createArchiveCenter(options: ArchiveCenterOptions): HTMLElement 
       { label: '作者', value: book.author || '未知' },
       { label: '主题', value: book.topic || '未分类' },
       { label: '阅读状态', value: STATUS_LABELS[book.status], color: STATUS_COLORS[book.status] },
+      { label: '复盘状态', value: REVIEW_STATUS_LABELS[book.reviewStatus], color: REVIEW_STATUS_COLORS[book.reviewStatus] },
       { label: '总章节', value: `${book.totalChapters} 章` },
+      { label: '推荐指数', value: book.recommendationRating > 0 ? '★'.repeat(book.recommendationRating) : '未评分' },
       { label: '是否收藏', value: book.isFavorite ? '★ 是' : '否' },
       { label: '计划完成日', value: book.plannedDate ? formatDate(book.plannedDate) : '未设置' }
     ]
@@ -438,6 +440,33 @@ export function createArchiveCenter(options: ArchiveCenterOptions): HTMLElement 
       highlightsSection.appendChild(highlightsTitle)
       highlightsSection.appendChild(highlightsContent)
       body.appendChild(highlightsSection)
+    }
+
+    if (book.oneLineSummary?.trim()) {
+      const summarySection = el('div', 'detail-section')
+      const summaryTitle = el('h3', 'detail-section-title', '💡 一句话总结')
+      const summaryContent = el('div', 'detail-content-block', book.oneLineSummary)
+      summarySection.appendChild(summaryTitle)
+      summarySection.appendChild(summaryContent)
+      body.appendChild(summarySection)
+    }
+
+    if (book.reviewConclusion?.trim()) {
+      const conclusionSection = el('div', 'detail-section')
+      const conclusionTitle = el('h3', 'detail-section-title', '📊 复盘结论')
+      const conclusionContent = el('div', 'detail-content-block', book.reviewConclusion)
+      conclusionSection.appendChild(conclusionTitle)
+      conclusionSection.appendChild(conclusionContent)
+      body.appendChild(conclusionSection)
+    }
+
+    if (book.reviewInsights?.trim()) {
+      const insightsSection = el('div', 'detail-section')
+      const insightsTitle = el('h3', 'detail-section-title', '🎯 阅读收获')
+      const insightsContent = el('div', 'detail-content-block', book.reviewInsights)
+      insightsSection.appendChild(insightsTitle)
+      insightsSection.appendChild(insightsContent)
+      body.appendChild(insightsSection)
     }
 
     if (book.reviewNotes.trim()) {

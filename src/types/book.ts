@@ -4,6 +4,8 @@ export type ArchiveStatus = 'all' | 'archived' | 'not_archived'
 
 export type MilestoneStatus = 'pending' | 'completed' | 'skipped'
 
+export type ReviewStatus = 'pending' | 'reviewing' | 'reviewed'
+
 export interface Milestone {
   id: string
   title: string
@@ -25,6 +27,25 @@ export interface MilestoneFilterOptions {
   sortOrder: 'asc' | 'desc'
 }
 
+export interface ReviewSummary {
+  reviewCompleteness: number
+  highlightsCount: number
+  hasReviewConclusion: boolean
+  hasReviewInsights: boolean
+  hasRecommendationRating: boolean
+  hasOneLineSummary: boolean
+  reviewStatus: ReviewStatus
+}
+
+export interface ReviewFilterOptions {
+  reviewStatus: ReviewStatus | ''
+  topic: string
+  author: string
+  searchKeyword: string
+  sortBy: 'updatedAt' | 'completedAt' | 'title' | 'reviewCompleteness' | 'recommendationRating'
+  sortOrder: 'asc' | 'desc'
+}
+
 export interface Book {
   id: string
   title: string
@@ -36,6 +57,13 @@ export interface Book {
   status: ReadingStatus
   highlights: string
   reviewNotes: string
+  reviewConclusion: string
+  reviewInsights: string
+  recommendationRating: number
+  oneLineSummary: string
+  reviewStatus: ReviewStatus
+  reviewStartedAt: string | null
+  reviewCompletedAt: string | null
   isFavorite: boolean
   createdAt: string
   updatedAt: string
@@ -84,4 +112,4 @@ export interface WeeklyPlanItem {
   remainingChapters: number
 }
 
-export type ViewMode = 'list' | 'weekly' | 'archive' | 'milestones'
+export type ViewMode = 'list' | 'weekly' | 'archive' | 'milestones' | 'review'

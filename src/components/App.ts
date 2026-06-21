@@ -1,5 +1,5 @@
 import type { Book, FilterOptions, ViewMode, ReadingStatus } from '../types/book'
-import { getBooks, getActiveBooks, deleteBook, duplicateBook, batchUpdateStatus, updateBook, archiveBook, batchArchiveBooks, getArchivedBooks, getMilestonesByCategory } from '../services/storage'
+import { getBooks, getActiveBooks, deleteBook, duplicateBook, batchUpdateStatus, updateBook, archiveBook, batchArchiveBooks, getArchivedBooks, getMilestonesByCategory, getBooksByReviewStatus } from '../services/storage'
 import { filterBooks, sortBooks } from '../services/filter'
 import { exportToJSON, exportToCSV, exportAllToJSON } from '../services/export'
 import { createBookCard } from './BookCard'
@@ -8,6 +8,7 @@ import { createWeeklyView } from './WeeklyView'
 import { createValidationAlerts } from './ValidationAlerts'
 import { createArchiveCenter } from './ArchiveCenter'
 import { createMilestoneCenter } from './MilestoneCenter'
+import { createReviewCenter } from './ReviewCenter'
 import { showBookForm } from './BookForm'
 import { el } from '../utils/ui'
 
@@ -58,6 +59,21 @@ export class App {
         onDataChange: () => {}
       })
       this.container.appendChild(milestoneCenter)
+      return
+    }
+
+    if (this.viewMode === 'review') {
+      const reviewCenter = createReviewCenter({
+        onBack: () => {
+          this.viewMode = 'list'
+          this.render()
+        },
+        onBookView: (book) => this.handleEditBook(book),
+        onDataChange: () => {
+          this.render()
+        }
+      })
+      this.container.appendChild(reviewCenter)
       return
     }
 
@@ -124,10 +140,19 @@ export class App {
       this.render()
     })
 
+    const reviewPendingCount = getBooksByReviewStatus('pending').length
+    const reviewBtn = el('button', `nav-btn ${this.viewMode === 'review' ? 'active' : ''}`,
+      `💭 复盘中心${reviewPendingCount > 0 ? ` (${reviewPendingCount}待复盘)` : ''}`)
+    reviewBtn.addEventListener('click', () => {
+      this.viewMode = 'review'
+      this.render()
+    })
+
     nav.appendChild(listBtn)
     nav.appendChild(weeklyBtn)
     nav.appendChild(archiveBtn)
     nav.appendChild(milestoneBtn)
+    nav.appendChild(reviewBtn)
 
     const actions = el('div', 'header-actions')
     const addBtn = el('button', 'btn btn-primary', '+ 新增书籍')
