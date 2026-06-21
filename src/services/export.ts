@@ -44,7 +44,7 @@ export function exportToCSV(books?: Book[]): void {
   const headers = [
     '书名', '作者', '主题', '总章节数', '已读章节',
     '计划完成日期', '阅读状态', '重点摘录', '复盘备注',
-    '是否收藏', '创建时间', '更新时间'
+    '是否收藏', '里程碑数', '里程碑概要', '创建时间', '更新时间'
   ]
   
   const statusMap: Record<string, string> = {
@@ -56,20 +56,28 @@ export function exportToCSV(books?: Book[]): void {
     reviewed: '已复盘'
   }
 
-  const rows = exportBooks.map(book => [
-    book.title,
-    book.author,
-    book.topic,
-    book.totalChapters.toString(),
-    book.readChapters.toString(),
-    book.plannedDate,
-    statusMap[book.status] || book.status,
-    escapeCSV(book.highlights),
-    escapeCSV(book.reviewNotes),
-    book.isFavorite ? '是' : '否',
-    book.createdAt,
-    book.updatedAt
-  ])
+  const rows = exportBooks.map(book => {
+    const milestones = book.milestones || []
+    const milestoneSummary = milestones.map(m =>
+      `${m.title}(${m.status === 'completed' ? '完成' : m.status === 'skipped' ? '跳过' : '待完成'}${m.expectedDate ? ',' + m.expectedDate : ''})`
+    ).join('; ')
+    return [
+      book.title,
+      book.author,
+      book.topic,
+      book.totalChapters.toString(),
+      book.readChapters.toString(),
+      book.plannedDate,
+      statusMap[book.status] || book.status,
+      escapeCSV(book.highlights),
+      escapeCSV(book.reviewNotes),
+      book.isFavorite ? '是' : '否',
+      milestones.length.toString(),
+      escapeCSV(milestoneSummary),
+      book.createdAt,
+      book.updatedAt
+    ]
+  })
 
   const csvContent = [headers, ...rows]
     .map(row => row.join(','))
@@ -86,7 +94,7 @@ export function exportArchivedToCSV(books?: Book[]): void {
     '书名', '作者', '主题', '总章节数', '最终已读章节', '最终进度(%)',
     '计划完成日期', '阅读状态', '完成时间', '归档时间',
     '重点摘录(行数)', '重点摘录内容', '复盘备注',
-    '是否收藏', '创建时间', '更新时间'
+    '是否收藏', '里程碑数', '里程碑概要', '创建时间', '更新时间'
   ]
   
   const statusMap: Record<string, string> = {
@@ -105,6 +113,10 @@ export function exportArchivedToCSV(books?: Book[]): void {
     const highlightsCount = book.highlights.trim()
       ? book.highlights.split('\n').filter(l => l.trim()).length
       : 0
+    const milestones = book.milestones || []
+    const milestoneSummary = milestones.map(m =>
+      `${m.title}(${m.status === 'completed' ? '完成' : m.status === 'skipped' ? '跳过' : '待完成'}${m.expectedDate ? ',' + m.expectedDate : ''})`
+    ).join('; ')
     return [
       book.title,
       book.author,
@@ -120,6 +132,8 @@ export function exportArchivedToCSV(books?: Book[]): void {
       escapeCSV(book.highlights),
       escapeCSV(book.reviewNotes),
       book.isFavorite ? '是' : '否',
+      milestones.length.toString(),
+      escapeCSV(milestoneSummary),
       book.createdAt,
       book.updatedAt
     ]
@@ -175,7 +189,14 @@ export function importFromJSON(file: File): Promise<Book[]> {
           ...book,
           isArchived: book.isArchived ?? false,
           archivedAt: book.archivedAt ?? null,
-          completedAt: book.completedAt ?? null
+          completedAt: book.completedAt ?? null,
+          milestones: (book.milestones ?? []).map((m: any) => ({
+            ...m,
+            status: m.status ?? 'pending',
+            completedAt: m.completedAt ?? null,
+            notes: m.notes ?? '',
+            progressThreshold: m.progressThreshold ?? 0
+          }))
         }))
         resolve(validBooks)
       } catch (err) {

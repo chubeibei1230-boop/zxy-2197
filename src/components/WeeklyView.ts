@@ -1,6 +1,7 @@
 import type { WeeklyPlanItem } from '../types/book'
 import { getWeeklyPlan, getTotalRemainingChapters } from '../services/validation'
-import { STATUS_LABELS, STATUS_COLORS, formatDate, el } from '../utils/ui'
+import { getNextPendingMilestone } from '../services/storage'
+import { STATUS_LABELS, STATUS_COLORS, formatDate, getDaysUntil, el } from '../utils/ui'
 
 export function createWeeklyView(): HTMLElement {
   const container = el('div', 'weekly-view')
@@ -73,6 +74,22 @@ function createWeeklyItemCard(item: WeeklyPlanItem, rank: number): HTMLElement {
 
   const reasonEl = el('div', 'weekly-item-reason', `💡 ${reason}`)
 
+  const nextMilestone = getNextPendingMilestone(book)
+  let milestoneEl: HTMLElement | null = null
+  if (nextMilestone) {
+    let milestoneText = `🎯 ${nextMilestone.title}`
+    if (nextMilestone.expectedDate) {
+      const days = getDaysUntil(nextMilestone.expectedDate)
+      if (days < 0) milestoneText += ` (逾期${Math.abs(days)}天)`
+      else if (days <= 3) milestoneText += ` (还剩${days}天)`
+      else milestoneText += ` (${formatDate(nextMilestone.expectedDate)})`
+    }
+    if (nextMilestone.progressThreshold > 0) {
+      milestoneText += ` · ${nextMilestone.progressThreshold}%`
+    }
+    milestoneEl = el('div', 'weekly-item-milestone', milestoneText)
+  }
+
   const progress = el('div', 'weekly-item-progress')
   const progressText = el('span', 'weekly-progress-text', 
     `已读 ${book.readChapters}/${book.totalChapters} 章 · 剩余 ${remainingChapters} 章`)
@@ -93,6 +110,7 @@ function createWeeklyItemCard(item: WeeklyPlanItem, rank: number): HTMLElement {
   content.appendChild(header)
   content.appendChild(meta)
   content.appendChild(reasonEl)
+  if (milestoneEl) content.appendChild(milestoneEl)
   content.appendChild(progress)
   content.appendChild(progressBar)
 

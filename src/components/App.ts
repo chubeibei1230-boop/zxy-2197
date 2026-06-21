@@ -1,5 +1,5 @@
 import type { Book, FilterOptions, ViewMode, ReadingStatus } from '../types/book'
-import { getBooks, getActiveBooks, deleteBook, duplicateBook, batchUpdateStatus, updateBook, archiveBook, batchArchiveBooks, getArchivedBooks } from '../services/storage'
+import { getBooks, getActiveBooks, deleteBook, duplicateBook, batchUpdateStatus, updateBook, archiveBook, batchArchiveBooks, getArchivedBooks, getMilestonesByCategory } from '../services/storage'
 import { filterBooks, sortBooks } from '../services/filter'
 import { exportToJSON, exportToCSV, exportAllToJSON } from '../services/export'
 import { createBookCard } from './BookCard'
@@ -7,6 +7,7 @@ import { createFilterPanel } from './FilterPanel'
 import { createWeeklyView } from './WeeklyView'
 import { createValidationAlerts } from './ValidationAlerts'
 import { createArchiveCenter } from './ArchiveCenter'
+import { createMilestoneCenter } from './MilestoneCenter'
 import { showBookForm } from './BookForm'
 import { el } from '../utils/ui'
 
@@ -44,6 +45,19 @@ export class App {
         onDataChange: () => {}
       })
       this.container.appendChild(archiveCenter)
+      return
+    }
+
+    if (this.viewMode === 'milestones') {
+      const milestoneCenter = createMilestoneCenter({
+        onBack: () => {
+          this.viewMode = 'list'
+          this.render()
+        },
+        onBookView: (book) => this.handleEditBook(book),
+        onDataChange: () => {}
+      })
+      this.container.appendChild(milestoneCenter)
       return
     }
 
@@ -100,9 +114,20 @@ export class App {
       this.render()
     })
 
+    const overdueMilestones = getMilestonesByCategory('overdue').length
+    const upcomingMilestones = getMilestonesByCategory('upcoming').length
+    const milestoneBadge = overdueMilestones > 0 ? ` (${overdueMilestones}逾期)` : upcomingMilestones > 0 ? ` (${upcomingMilestones})` : ''
+    const milestoneBtn = el('button', `nav-btn ${this.viewMode === 'milestones' ? 'active' : ''}`,
+      `🎯 里程碑${milestoneBadge}`)
+    milestoneBtn.addEventListener('click', () => {
+      this.viewMode = 'milestones'
+      this.render()
+    })
+
     nav.appendChild(listBtn)
     nav.appendChild(weeklyBtn)
     nav.appendChild(archiveBtn)
+    nav.appendChild(milestoneBtn)
 
     const actions = el('div', 'header-actions')
     const addBtn = el('button', 'btn btn-primary', '+ 新增书籍')

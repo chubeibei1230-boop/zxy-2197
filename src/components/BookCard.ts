@@ -1,5 +1,6 @@
 import type { Book } from '../types/book'
 import { calculateProgress } from '../services/validation'
+import { getNextPendingMilestone } from '../services/storage'
 import { STATUS_LABELS, STATUS_COLORS, formatDate, getDaysUntil, el } from '../utils/ui'
 
 export interface BookCardOptions {
@@ -120,6 +121,31 @@ export function createBookCard(options: BookCardOptions): HTMLElement {
     const reviewLabel = el('span', 'review-label', '💭 有复盘')
     reviewSection.appendChild(reviewLabel)
     info.appendChild(reviewSection)
+  }
+
+  const nextMilestone = getNextPendingMilestone(book)
+  if (nextMilestone && !isArchiveView) {
+    const milestoneSection = el('div', 'book-milestone-hint')
+    let milestoneText = `🎯 ${nextMilestone.title}`
+    if (nextMilestone.expectedDate) {
+      const daysUntilMilestone = getDaysUntil(nextMilestone.expectedDate)
+      if (daysUntilMilestone < 0) {
+        milestoneSection.classList.add('milestone-overdue')
+        milestoneText += ` (逾期${Math.abs(daysUntilMilestone)}天)`
+      } else if (daysUntilMilestone <= 3) {
+        milestoneSection.classList.add('milestone-urgent')
+        milestoneText += ` (还剩${daysUntilMilestone}天)`
+      } else {
+        milestoneSection.classList.add('milestone-upcoming')
+        milestoneText += ` (${formatDate(nextMilestone.expectedDate)})`
+      }
+    }
+    if (nextMilestone.progressThreshold > 0) {
+      milestoneText += ` · ${nextMilestone.progressThreshold}%`
+    }
+    const milestoneLabel = el('span', 'milestone-hint-text', milestoneText)
+    milestoneSection.appendChild(milestoneLabel)
+    info.appendChild(milestoneSection)
   }
 
   const actions = el('div', 'book-actions')

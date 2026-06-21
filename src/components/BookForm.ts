@@ -1,6 +1,7 @@
-import type { Book, ReadingStatus } from '../types/book'
-import { addBook, updateBook } from '../services/storage'
-import { el } from '../utils/ui'
+import type { Book, ReadingStatus, Milestone } from '../types/book'
+import { addBook, updateBook, getBookById } from '../services/storage'
+import { showMilestoneForm } from './MilestoneForm'
+import { formatDate, getDaysUntil, el } from '../utils/ui'
 
 export interface BookFormOptions {
   book?: Book
@@ -70,6 +71,42 @@ export function showBookForm(options: BookFormOptions): void {
   favoriteGroup.appendChild(favoriteCheckbox)
   favoriteGroup.appendChild(favoriteLabel)
 
+  const milestoneSection = el('div', 'form-group milestone-form-section')
+  const milestoneHeader = el('div', 'milestone-form-header')
+  const milestoneTitle = el('label', 'form-label', '🎯 阅读里程碑')
+  const milestoneCount = el('span', 'milestone-form-count', 
+    book ? `${(book.milestones || []).length} 个里程碑` : '添加后可设置里程碑')
+  milestoneHeader.appendChild(milestoneTitle)
+  milestoneHeader.appendChild(milestoneCount)
+
+  const milestoneList = el('div', 'milestone-form-list')
+  if (book && book.milestones && book.milestones.length > 0) {
+    book.milestones.forEach(m => {
+      milestoneList.appendChild(createMilestoneFormItem(book.id, m, refreshMilestones))
+    })
+  } else {
+    const emptyHint = el('div', 'milestone-form-empty', '暂无里程碑，点击下方按钮添加')
+    milestoneList.appendChild(emptyHint)
+  }
+
+  const addMilestoneBtn = el('button', 'btn btn-outline btn-sm milestone-add-btn', '+ 添加里程碑') as HTMLButtonElement
+  addMilestoneBtn.type = 'button'
+  addMilestoneBtn.addEventListener('click', () => {
+    if (!book) {
+      alert('请先保存书籍后再添加里程碑')
+      return
+    }
+    showMilestoneForm({
+      bookId: book.id,
+      onSuccess: () => refreshMilestones(),
+      onCancel: () => {}
+    })
+  })
+
+  milestoneSection.appendChild(milestoneHeader)
+  milestoneSection.appendChild(milestoneList)
+  milestoneSection.appendChild(addMilestoneBtn)
+
   const highlightsGroup = createTextareaGroup('重点摘录', 'highlights', book?.highlights || '', 4)
   const reviewGroup = createTextareaGroup('复盘备注', 'reviewNotes', book?.reviewNotes || '', 4)
 
@@ -89,6 +126,7 @@ export function showBookForm(options: BookFormOptions): void {
   form.appendChild(dateGroup)
   form.appendChild(statusGroup)
   form.appendChild(favoriteGroup)
+  form.appendChild(milestoneSection)
   form.appendChild(highlightsGroup)
   form.appendChild(reviewGroup)
   form.appendChild(footer)
@@ -147,6 +185,22 @@ export function showBookForm(options: BookFormOptions): void {
     closeModal()
     onSuccess()
   }
+
+  function refreshMilestones(): void {
+    const freshBook = book ? getBookById(book.id) : null
+    milestoneList.innerHTML = ''
+    if (freshBook && freshBook.milestones && freshBook.milestones.length > 0) {
+      milestoneCount.textContent = `${freshBook.milestones.length} 个里程碑`
+      freshBook.milestones.forEach((m: Milestone) => {
+        milestoneList.appendChild(createMilestoneFormItem(freshBook.id, m, refreshMilestones))
+      })
+    } else {
+      milestoneCount.textContent = book ? '0 个里程碑' : '添加后可设置里程碑'
+      const emptyHint = el('div', 'milestone-form-empty', '暂无里程碑，点击下方按钮添加')
+      milestoneList.appendChild(emptyHint)
+    }
+    onSuccess()
+  }
 }
 
 function createFormGroup(label: string, type: string, name: string, value: string, required = false): HTMLElement {
@@ -172,4 +226,48 @@ function createTextareaGroup(label: string, name: string, value: string, rows: n
   group.appendChild(labelEl)
   group.appendChild(textarea)
   return group
+}
+
+function createMilestoneFormItem(bookId: string, milestone: Milestone, onRefresh: () => void): HTMLElement {
+  const item = el('div', `milestone-form-item milestone-status-${milestone.status}`)
+  
+  const info = el('div', 'milestone-form-item-info')
+  const nameEl = el('span', 'milestone-form-item-name', milestone.title)
+  const statusLabel = milestone.status === 'completed' ? '✅ 已完成'
+    : milestone.status === 'skipped' ? '⏭ 已跳过'
+    : '⏳ 待完成'
+  const statusEl = el('span', `milestone-form-item-status status-${milestone.status}`, statusLabel)
+  info.appendChild(nameEl)
+  info.appendChild(statusEl)
+
+  const meta = el('div', 'milestone-form-item-meta')
+  if (milestone.expectedDate) {
+    const days = getDaysUntil(milestone.expectedDate)
+    let dateText = formatDate(milestone.expectedDate)
+    if (milestone.status === 'pending') {
+      if (days < 0) dateText += ` (逾期${Math.abs(days)}天)`
+      else if (days <= 3) dateText += ` (还剩${days}天)`
+    }
+    meta.appendChild(el('span', 'milestone-form-item-date', dateText))
+  }
+  if (milestone.progressThreshold > 0) {
+    meta.appendChild(el('span', 'milestone-form-item-threshold', `${milestone.progressThreshold}%`))
+  }
+
+  const actions = el('div', 'milestone-form-item-actions')
+  const editBtn = el('button', 'btn btn-sm btn-outline', '编辑')
+  editBtn.addEventListener('click', () => {
+    showMilestoneForm({
+      bookId,
+      milestone,
+      onSuccess: onRefresh,
+      onCancel: () => {}
+    })
+  })
+  actions.appendChild(editBtn)
+
+  item.appendChild(info)
+  item.appendChild(meta)
+  item.appendChild(actions)
+  return item
 }

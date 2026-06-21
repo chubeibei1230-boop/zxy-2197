@@ -1,4 +1,4 @@
-import type { Book } from '../types/book'
+import type { Book, Milestone } from '../types/book'
 
 const STORAGE_KEY = 'reading_plan_books'
 
@@ -14,7 +14,14 @@ export function getBooks(): Book[] {
       ...book,
       isArchived: book.isArchived ?? false,
       archivedAt: book.archivedAt ?? null,
-      completedAt: book.completedAt ?? null
+      completedAt: book.completedAt ?? null,
+      milestones: (book.milestones ?? []).map((m: Milestone) => ({
+        ...m,
+        status: m.status ?? 'pending',
+        completedAt: m.completedAt ?? null,
+        notes: m.notes ?? '',
+        progressThreshold: m.progressThreshold ?? 0
+      }))
     }))
   } catch {
     return []
@@ -33,7 +40,7 @@ export function saveBooks(books: Book[]): void {
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(books))
 }
 
-export function addBook(book: Omit<Book, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'archivedAt' | 'completedAt'>): Book {
+export function addBook(book: Omit<Book, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'archivedAt' | 'completedAt' | 'milestones'>): Book {
   const books = getBooks()
   const now = new Date().toISOString()
   const completedAt = (book.status === 'completed' || book.status === 'reviewed') ? now : null
@@ -44,7 +51,8 @@ export function addBook(book: Omit<Book, 'id' | 'createdAt' | 'updatedAt' | 'isA
     updatedAt: now,
     isArchived: false,
     archivedAt: null,
-    completedAt
+    completedAt,
+    milestones: []
   }
   books.push(newBook)
   saveBooks(books)
@@ -65,6 +73,29 @@ export function updateBook(id: string, updates: Partial<Book>): Book | null {
   if (updates.status && updates.status !== 'completed' && updates.status !== 'reviewed') {
     completedAt = null
   }
+
+  let milestones = original.milestones || []
+
+  if (updates.status === 'completed' || updates.status === 'reviewed') {
+    milestones = milestones.map(m => {
+      if (m.status === 'pending') {
+        return { ...m, status: 'completed' as const, completedAt: now, updatedAt: now }
+      }
+      return m
+    })
+  }
+
+  if (updates.readChapters !== undefined || updates.totalChapters !== undefined) {
+    const newRead = updates.readChapters !== undefined ? updates.readChapters : original.readChapters
+    const newTotal = updates.totalChapters !== undefined ? updates.totalChapters : original.totalChapters
+    const progress = newTotal > 0 ? Math.round((newRead / newTotal) * 100) : 0
+    milestones = milestones.map(m => {
+      if (m.status === 'pending' && m.progressThreshold > 0 && progress >= m.progressThreshold) {
+        return { ...m, status: 'completed' as const, completedAt: now, updatedAt: now }
+      }
+      return m
+    })
+  }
   
   books[index] = {
     ...books[index],
@@ -72,7 +103,8 @@ export function updateBook(id: string, updates: Partial<Book>): Book | null {
     id: books[index].id,
     createdAt: books[index].createdAt,
     updatedAt: now,
-    completedAt
+    completedAt,
+    milestones
   }
   saveBooks(books)
   return books[index]
@@ -178,6 +210,123 @@ export function getAllAuthors(): string[] {
   const books = getBooks()
   const authors = new Set(books.map(b => b.author).filter(t => t))
   return Array.from(authors).sort()
+}
+
+export function addMilestone(bookId: string, milestone: Omit<Milestone, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'completedAt'>): Book | null {
+  const books = getBooks()
+  const index = books.findIndex(b => b.id === bookId)
+  if (index === -1) return null
+  const now = new Date().toISOString()
+  const newMilestone: Milestone = {
+    ...milestone,
+    id: generateId(),
+    status: 'pending',
+    completedAt: null,
+    createdAt: now,
+    updatedAt: now
+  }
+  const milestones = [...(books[index].milestones || []), newMilestone]
+  books[index] = { ...books[index], milestones, updatedAt: now }
+  saveBooks(books)
+  return books[index]
+}
+
+export function updateMilestone(bookId: string, milestoneId: string, updates: Partial<Milestone>): Book | null {
+  const books = getBooks()
+  const index = books.findIndex(b => b.id === bookId)
+  if (index === -1) return null
+  const now = new Date().toISOString()
+  const milestones = (books[index].milestones || []).map(m => {
+    if (m.id === milestoneId) {
+      const updated = { ...m, ...updates, updatedAt: now }
+      if (updates.status === 'completed' && !m.completedAt) {
+        updated.completedAt = now
+      }
+      if (updates.status === 'pending' || updates.status === 'skipped') {
+        updated.completedAt = null
+      }
+      return updated
+    }
+    return m
+  })
+  books[index] = { ...books[index], milestones, updatedAt: now }
+  saveBooks(books)
+  return books[index]
+}
+
+export function deleteMilestone(bookId: string, milestoneId: string): Book | null {
+  const books = getBooks()
+  const index = books.findIndex(b => b.id === bookId)
+  if (index === -1) return null
+  const now = new Date().toISOString()
+  const milestones = (books[index].milestones || []).filter(m => m.id !== milestoneId)
+  books[index] = { ...books[index], milestones, updatedAt: now }
+  saveBooks(books)
+  return books[index]
+}
+
+export function batchCompleteMilestones(milestoneIds: string[]): number {
+  const books = getBooks()
+  const now = new Date().toISOString()
+  let count = 0
+  books.forEach((book, i) => {
+    let changed = false
+    const milestones = (book.milestones || []).map(m => {
+      if (milestoneIds.includes(m.id) && m.status === 'pending') {
+        count++
+        changed = true
+        return { ...m, status: 'completed' as const, completedAt: now, updatedAt: now }
+      }
+      return m
+    })
+    if (changed) {
+      books[i] = { ...book, milestones, updatedAt: now }
+    }
+  })
+  saveBooks(books)
+  return count
+}
+
+export function getAllMilestones(): { book: Book; milestone: Milestone }[] {
+  const books = getBooks()
+  const result: { book: Book; milestone: Milestone }[] = []
+  books.forEach(book => {
+    (book.milestones || []).forEach(milestone => {
+      result.push({ book, milestone })
+    })
+  })
+  return result
+}
+
+export function getNextPendingMilestone(book: Book): Milestone | null {
+  const now = new Date().toISOString().split('T')[0]
+  const pending = (book.milestones || [])
+    .filter(m => m.status === 'pending')
+    .sort((a, b) => {
+      if (a.expectedDate && b.expectedDate) return a.expectedDate.localeCompare(b.expectedDate)
+      if (a.expectedDate) return -1
+      if (b.expectedDate) return 1
+      return a.progressThreshold - b.progressThreshold
+    })
+  if (pending.length === 0) return null
+  return pending[0]
+}
+
+export function getMilestonesByCategory(category: 'upcoming' | 'overdue' | 'completed'): { book: Book; milestone: Milestone }[] {
+  const all = getAllMilestones()
+  const today = new Date().toISOString().split('T')[0]
+  return all.filter(({ milestone }) => {
+    switch (category) {
+      case 'upcoming':
+        return milestone.status === 'pending' && milestone.expectedDate && milestone.expectedDate >= today
+      case 'overdue':
+        return milestone.status === 'pending' && milestone.expectedDate && milestone.expectedDate < today
+      case 'completed':
+        return milestone.status === 'completed'
+      default:
+        return false
+    }
+  })
 }
 
 export function getArchivedTopics(): string[] {

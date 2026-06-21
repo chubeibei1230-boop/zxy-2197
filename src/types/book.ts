@@ -2,6 +2,28 @@ export type ReadingStatus = 'not_started' | 'reading' | 'completed' | 'paused' |
 
 export type ArchiveStatus = 'all' | 'archived' | 'not_archived'
 
+export type MilestoneStatus = 'pending' | 'completed' | 'skipped'
+
+export interface Milestone {
+  id: string
+  title: string
+  targetDescription: string
+  expectedDate: string
+  status: MilestoneStatus
+  completedAt: string | null
+  notes: string
+  progressThreshold: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MilestoneFilterOptions {
+  category: 'upcoming' | 'overdue' | 'completed'
+  bookKeyword: string
+  sortBy: 'expectedDate' | 'bookTitle' | 'progressThreshold' | 'createdAt'
+  sortOrder: 'asc' | 'desc'
+}
+
 export interface Book {
   id: string
   title: string
@@ -19,6 +41,7 @@ export interface Book {
   isArchived: boolean
   archivedAt: string | null
   completedAt: string | null
+  milestones: Milestone[]
 }
 
 export interface FilterOptions {
@@ -60,4 +83,4 @@ export interface WeeklyPlanItem {
   remainingChapters: number
 }
 
-export type ViewMode = 'list' | 'weekly' | 'archive'
+export type ViewMode = 'list' | 'weekly' | 'archive' | 'milestones'

@@ -49,6 +49,18 @@ export function validateBook(book: Book, allBooks: Book[]): ValidationIssue[] {
     })
   }
 
+  const overdueMilestones = (book.milestones || []).filter(m =>
+    m.status === 'pending' && m.expectedDate && m.expectedDate < today
+  )
+  if (overdueMilestones.length > 0 && !isDone) {
+    issues.push({
+      type: 'overdue',
+      severity: 'warning',
+      message: `《${book.title}》有${overdueMilestones.length}个里程碑已逾期`,
+      bookIds: [book.id]
+    })
+  }
+
   return issues
 }
 
@@ -143,6 +155,24 @@ export function getWeeklyPlan(): WeeklyPlanItem[] {
         priority += 20
         reason += ` · ${diffDays}天后到期`
       }
+    }
+
+    const overdueMilestones = (book.milestones || []).filter(m =>
+      m.status === 'pending' && m.expectedDate && m.expectedDate < new Date().toISOString().split('T')[0]
+    )
+    if (overdueMilestones.length > 0) {
+      priority += 15 * overdueMilestones.length
+      reason += ` · ${overdueMilestones.length}个里程碑逾期`
+    }
+
+    const upcomingMilestones = (book.milestones || []).filter(m => {
+      if (m.status !== 'pending' || !m.expectedDate) return false
+      const days = Math.ceil((new Date(m.expectedDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+      return days >= 0 && days <= 7
+    })
+    if (upcomingMilestones.length > 0) {
+      priority += 10 * upcomingMilestones.length
+      reason += ` · ${upcomingMilestones.length}个里程碑临近`
     }
 
     items.push({
