@@ -1,11 +1,12 @@
 import type { Book, FilterOptions, ViewMode, ReadingStatus } from '../types/book'
-import { getBooks, deleteBook, duplicateBook, batchUpdateStatus, updateBook } from '../services/storage'
+import { getBooks, getActiveBooks, deleteBook, duplicateBook, batchUpdateStatus, updateBook, archiveBook, batchArchiveBooks, getArchivedBooks } from '../services/storage'
 import { filterBooks, sortBooks } from '../services/filter'
-import { exportToJSON, exportToCSV } from '../services/export'
+import { exportToJSON, exportToCSV, exportAllToJSON } from '../services/export'
 import { createBookCard } from './BookCard'
 import { createFilterPanel } from './FilterPanel'
 import { createWeeklyView } from './WeeklyView'
 import { createValidationAlerts } from './ValidationAlerts'
+import { createArchiveCenter } from './ArchiveCenter'
 import { showBookForm } from './BookForm'
 import { el } from '../utils/ui'
 
@@ -32,6 +33,19 @@ export class App {
 
   private render(): void {
     this.container.innerHTML = ''
+
+    if (this.viewMode === 'archive') {
+      const archiveCenter = createArchiveCenter({
+        onBookView: (book) => this.handleEditBook(book),
+        onBack: () => {
+          this.viewMode = 'list'
+          this.render()
+        },
+        onDataChange: () => {}
+      })
+      this.container.appendChild(archiveCenter)
+      return
+    }
 
     const header = this.createHeader()
     const main = el('main', 'main-content')
@@ -78,8 +92,17 @@ export class App {
       this.render()
     })
 
+    const archivedCount = getArchivedBooks().length
+    const archiveBtn = el('button', `nav-btn ${this.viewMode === 'archive' ? 'active' : ''}`, 
+      `📦 归档中心${archivedCount > 0 ? ` (${archivedCount})` : ''}`)
+    archiveBtn.addEventListener('click', () => {
+      this.viewMode = 'archive'
+      this.render()
+    })
+
     nav.appendChild(listBtn)
     nav.appendChild(weeklyBtn)
+    nav.appendChild(archiveBtn)
 
     const actions = el('div', 'header-actions')
     const addBtn = el('button', 'btn btn-primary', '+ 新增书籍')
@@ -87,20 +110,26 @@ export class App {
     
     const exportBtn = el('button', 'btn btn-outline', '📤 导出')
     const exportMenu = el('div', 'export-menu')
-    const exportJsonBtn = el('button', 'export-menu-item', '导出 JSON')
+    const exportJsonBtn = el('button', 'export-menu-item', '导出 JSON（当前列表）')
     exportJsonBtn.addEventListener('click', () => {
       const filtered = this.getFilteredAndSortedBooks()
       exportToJSON(filtered)
       exportMenu.classList.remove('open')
     })
-    const exportCsvBtn = el('button', 'export-menu-item', '导出 CSV')
+    const exportCsvBtn = el('button', 'export-menu-item', '导出 CSV（当前列表）')
     exportCsvBtn.addEventListener('click', () => {
       const filtered = this.getFilteredAndSortedBooks()
       exportToCSV(filtered)
       exportMenu.classList.remove('open')
     })
+    const exportAllBtn = el('button', 'export-menu-item', '导出全部数据（含归档）')
+    exportAllBtn.addEventListener('click', () => {
+      exportAllToJSON()
+      exportMenu.classList.remove('open')
+    })
     exportMenu.appendChild(exportJsonBtn)
     exportMenu.appendChild(exportCsvBtn)
+    exportMenu.appendChild(exportAllBtn)
     
     exportBtn.addEventListener('click', (e) => {
       e.stopPropagation()
@@ -175,13 +204,12 @@ export class App {
     const selectedCount = el('span', 'selected-count', 
       this.selectedIds.size > 0 ? `已选 ${this.selectedIds.size} 本` : '')
 
-    leftGroup.appendChild(selectAllCheckbox)
-    leftGroup.appendChild(selectAllLabel)
-    leftGroup.appendChild(selectedCount)
-
-    const rightGroup = el('div', 'toolbar-right')
-
     if (this.selectedIds.size > 0) {
+      const canArchiveCount = Array.from(this.selectedIds).filter(id => {
+        const book = getBooks().find(b => b.id === id)
+        return book && (book.status === 'completed' || book.status === 'reviewed')
+      }).length
+
       const batchStatusSelect = el('select', 'batch-status-select') as HTMLSelectElement
       const statusOptions: { value: ReadingStatus; label: string }[] = [
         { value: 'not_started', label: '批量设为未开始' },
@@ -213,8 +241,35 @@ export class App {
         }
       })
 
-      rightGroup.appendChild(batchStatusSelect)
+      leftGroup.appendChild(selectAllCheckbox)
+      leftGroup.appendChild(selectAllLabel)
+      leftGroup.appendChild(selectedCount)
+      leftGroup.appendChild(batchStatusSelect)
+
+      if (canArchiveCount > 0) {
+        const batchArchiveBtn = el('button', 'btn btn-sm btn-info batch-btn', 
+          `📦 批量归档 (${canArchiveCount})`)
+        batchArchiveBtn.title = '将选中的已完成/已复盘书籍移入归档中心'
+        batchArchiveBtn.addEventListener('click', () => {
+          const archivableIds = Array.from(this.selectedIds).filter(id => {
+            const book = getBooks().find(b => b.id === id)
+            return book && (book.status === 'completed' || book.status === 'reviewed')
+          })
+          if (confirm(`确定要将 ${archivableIds.length} 本已完成的书籍归档吗？`)) {
+            batchArchiveBooks(archivableIds)
+            this.selectedIds.clear()
+            this.render()
+          }
+        })
+        leftGroup.appendChild(batchArchiveBtn)
+      }
+    } else {
+      leftGroup.appendChild(selectAllCheckbox)
+      leftGroup.appendChild(selectAllLabel)
+      leftGroup.appendChild(selectedCount)
     }
+
+    const rightGroup = el('div', 'toolbar-right')
 
     const sortGroup = el('div', 'sort-group')
     const sortLabel = el('span', 'sort-label', '排序：')
@@ -264,12 +319,21 @@ export class App {
     const books = this.getFilteredAndSortedBooks()
 
     if (books.length === 0) {
+      const allBooksCount = getActiveBooks().length
       const empty = el('div', 'empty-state')
-      empty.innerHTML = `
-        <div class="empty-icon">📖</div>
-        <p>还没有书籍计划</p>
-        <p class="empty-hint">点击右上角"新增书籍"开始添加你的第一本书吧</p>
-      `
+      if (allBooksCount === 0) {
+        empty.innerHTML = `
+          <div class="empty-icon">📖</div>
+          <p>还没有书籍计划</p>
+          <p class="empty-hint">点击右上角"新增书籍"开始添加你的第一本书吧</p>
+        `
+      } else {
+        empty.innerHTML = `
+          <div class="empty-icon">🔍</div>
+          <p>没有找到匹配的书籍</p>
+          <p class="empty-hint">试试调整筛选条件，或去归档中心看看已归档的书籍</p>
+        `
+      }
       section.appendChild(empty)
       return section
     }
@@ -290,15 +354,18 @@ export class App {
         onEdit: (book) => this.handleEditBook(book),
         onDelete: (id) => this.handleDeleteBook(id),
         onDuplicate: (id) => this.handleDuplicateBook(id),
-        onToggleFavorite: (id) => this.handleToggleFavorite(id)
+        onToggleFavorite: (id) => this.handleToggleFavorite(id),
+        onArchive: (id) => this.handleArchiveBook(id)
       })
       grid.appendChild(card)
     })
 
     section.appendChild(grid)
 
+    const totalCount = getActiveBooks().length
+    const archivedCount = getArchivedBooks().length
     const countInfo = el('div', 'list-footer')
-    countInfo.textContent = `共 ${books.length} 本书籍`
+    countInfo.textContent = `共 ${books.length} / ${totalCount} 本进行中${archivedCount > 0 ? ` · ${archivedCount} 本已归档` : ''}`
     section.appendChild(countInfo)
 
     return section
@@ -363,5 +430,11 @@ export class App {
       updateBook(id, { isFavorite: !book.isFavorite })
       this.render()
     }
+  }
+
+  private handleArchiveBook(id: string): void {
+    archiveBook(id)
+    this.selectedIds.delete(id)
+    this.render()
   }
 }

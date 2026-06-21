@@ -1,11 +1,12 @@
 import type { Book, ValidationIssue, WeeklyPlanItem } from '../types/book'
-import { getBooks } from './storage'
+import { getActiveBooks } from './storage'
 
 const RECENT_PLAN_THRESHOLD = 5
 const TOO_MANY_PLAN_THRESHOLD = 10
 
 export function validateBook(book: Book, allBooks: Book[]): ValidationIssue[] {
   const issues: ValidationIssue[] = []
+  if (book.isArchived) return issues
   const today = new Date().toISOString().split('T')[0]
   const isDone = book.status === 'completed' || book.status === 'reviewed'
 
@@ -28,7 +29,7 @@ export function validateBook(book: Book, allBooks: Book[]): ValidationIssue[] {
   }
 
   const duplicates = allBooks.filter(
-    b => b.title === book.title && b.id !== book.id
+    b => b.title === book.title && b.id !== book.id && !b.isArchived
   )
   if (duplicates.length > 0) {
     issues.push({
@@ -52,7 +53,7 @@ export function validateBook(book: Book, allBooks: Book[]): ValidationIssue[] {
 }
 
 export function validateAllBooks(): ValidationIssue[] {
-  const books = getBooks()
+  const books = getActiveBooks()
   const allIssues: ValidationIssue[] = []
 
   books.forEach(book => {
@@ -87,10 +88,11 @@ export function calculateProgress(book: Book): number {
 }
 
 export function getWeeklyPlan(): WeeklyPlanItem[] {
-  const books = getBooks()
+  const books = getActiveBooks()
   const items: WeeklyPlanItem[] = []
 
   books.forEach(book => {
+    if (book.isArchived) return
     const isDone = book.status === 'completed' || book.status === 'reviewed'
     const needsReview = book.status === 'completed' && (!book.highlights.trim() || !book.reviewNotes.trim())
     

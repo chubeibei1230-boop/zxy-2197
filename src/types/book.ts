@@ -1,5 +1,7 @@
 export type ReadingStatus = 'not_started' | 'reading' | 'completed' | 'paused' | 'reviewing' | 'reviewed'
 
+export type ArchiveStatus = 'all' | 'archived' | 'not_archived'
+
 export interface Book {
   id: string
   title: string
@@ -14,6 +16,9 @@ export interface Book {
   isFavorite: boolean
   createdAt: string
   updatedAt: string
+  isArchived: boolean
+  archivedAt: string | null
+  completedAt: string | null
 }
 
 export interface FilterOptions {
@@ -24,6 +29,21 @@ export interface FilterOptions {
   progressMin: number
   progressMax: number
   hasHighlights: boolean | null
+}
+
+export interface ArchiveFilterOptions {
+  topic: string
+  author: string
+  status: ReadingStatus | ''
+  archiveStatus: ArchiveStatus
+  searchKeyword: string
+}
+
+export interface ArchiveSummary {
+  finalProgress: number
+  completionTime: string | null
+  highlightsCount: number
+  hasReviewNotes: boolean
 }
 
 export interface ValidationIssue {
@@ -40,4 +60,4 @@ export interface WeeklyPlanItem {
   remainingChapters: number
 }
 
-export type ViewMode = 'list' | 'weekly'
+export type ViewMode = 'list' | 'weekly' | 'archive'

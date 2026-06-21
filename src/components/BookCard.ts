@@ -10,12 +10,15 @@ export interface BookCardOptions {
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
   onToggleFavorite: (id: string) => void
+  onArchive?: (id: string) => void
+  onUnarchive?: (id: string) => void
+  isArchiveView?: boolean
 }
 
 export function createBookCard(options: BookCardOptions): HTMLElement {
-  const { book, selected, onSelect, onEdit, onDelete, onDuplicate, onToggleFavorite } = options
+  const { book, selected, onSelect, onEdit, onDelete, onDuplicate, onToggleFavorite, onArchive, onUnarchive, isArchiveView = false } = options
 
-  const card = el('div', `book-card ${selected ? 'selected' : ''} ${book.isFavorite ? 'favorite' : ''}`)
+  const card = el('div', `book-card ${selected ? 'selected' : ''} ${book.isFavorite ? 'favorite' : ''} ${book.isArchived ? 'archived' : ''}`)
   card.dataset.id = book.id
 
   const header = el('div', 'book-card-header')
@@ -44,9 +47,18 @@ export function createBookCard(options: BookCardOptions): HTMLElement {
   meta.appendChild(author)
   meta.appendChild(topic)
 
+  const statusRow = el('div', 'status-row')
   const statusBadge = el('span', 'status-badge', STATUS_LABELS[book.status])
   statusBadge.style.backgroundColor = STATUS_COLORS[book.status] + '20'
   statusBadge.style.color = STATUS_COLORS[book.status]
+  statusRow.appendChild(statusBadge)
+
+  if (book.isArchived) {
+    const archivedBadge = el('span', 'status-badge archived-badge', '📦 已归档')
+    statusRow.appendChild(archivedBadge)
+  }
+  statusBadge.style.marginBottom = '0'
+  statusBadge.style.marginRight = '8px'
 
   const progress = calculateProgress(book)
   const progressSection = el('div', 'progress-section')
@@ -72,7 +84,7 @@ export function createBookCard(options: BookCardOptions): HTMLElement {
     let dateClass = 'planned-date'
     let dateText = `计划：${formatDate(book.plannedDate)}`
     
-    if (book.status !== 'completed') {
+    if (!isArchiveView && book.status !== 'completed' && book.status !== 'reviewed') {
       if (daysUntil < 0) {
         dateClass += ' overdue'
         dateText += ` (逾期${Math.abs(daysUntil)}天)`
@@ -86,23 +98,15 @@ export function createBookCard(options: BookCardOptions): HTMLElement {
     info.appendChild(dateEl)
   }
 
-  const actions = el('div', 'book-actions')
-  const editBtn = el('button', 'btn btn-sm btn-outline', '编辑')
-  editBtn.addEventListener('click', () => onEdit(book))
-  
-  const duplicateBtn = el('button', 'btn btn-sm btn-outline', '复制')
-  duplicateBtn.addEventListener('click', () => onDuplicate(book.id))
-  
-  const deleteBtn = el('button', 'btn btn-sm btn-danger', '删除')
-  deleteBtn.addEventListener('click', () => {
-    if (confirm(`确定要删除《${book.title}》吗？`)) {
-      onDelete(book.id)
-    }
-  })
+  if (book.completedAt) {
+    const completedEl = el('span', 'completed-date', `完成：${formatDate(book.completedAt)}`)
+    info.appendChild(completedEl)
+  }
 
-  actions.appendChild(editBtn)
-  actions.appendChild(duplicateBtn)
-  actions.appendChild(deleteBtn)
+  if (book.archivedAt) {
+    const archivedEl = el('span', 'archived-date', `归档：${formatDate(book.archivedAt)}`)
+    info.appendChild(archivedEl)
+  }
 
   if (book.highlights.trim()) {
     const highlightsSection = el('div', 'book-highlights')
@@ -111,9 +115,73 @@ export function createBookCard(options: BookCardOptions): HTMLElement {
     info.appendChild(highlightsSection)
   }
 
+  if (book.reviewNotes.trim()) {
+    const reviewSection = el('div', 'book-review')
+    const reviewLabel = el('span', 'review-label', '💭 有复盘')
+    reviewSection.appendChild(reviewLabel)
+    info.appendChild(reviewSection)
+  }
+
+  const actions = el('div', 'book-actions')
+  
+  if (isArchiveView) {
+    const editBtn = el('button', 'btn btn-sm btn-outline', '查看详情')
+    editBtn.addEventListener('click', () => onEdit(book))
+    
+    const unarchiveBtn = el('button', 'btn btn-sm btn-primary', '↩ 恢复')
+    unarchiveBtn.title = '恢复到正常计划中'
+    unarchiveBtn.addEventListener('click', () => {
+      if (confirm(`确定要将《${book.title}》恢复到正常计划吗？`)) {
+        if (onUnarchive) onUnarchive(book.id)
+      }
+    })
+
+    const deleteBtn = el('button', 'btn btn-sm btn-danger', '删除')
+    deleteBtn.addEventListener('click', () => {
+      if (confirm(`确定要删除《${book.title}》吗？归档内容也会被清除。`)) {
+        onDelete(book.id)
+      }
+    })
+
+    actions.appendChild(editBtn)
+    actions.appendChild(unarchiveBtn)
+    actions.appendChild(deleteBtn)
+  } else {
+    const editBtn = el('button', 'btn btn-sm btn-outline', '编辑')
+    editBtn.addEventListener('click', () => onEdit(book))
+    
+    const duplicateBtn = el('button', 'btn btn-sm btn-outline', '复制')
+    duplicateBtn.addEventListener('click', () => onDuplicate(book.id))
+
+    const canArchive = book.status === 'completed' || book.status === 'reviewed'
+    const archiveBtn = el('button', `btn btn-sm ${canArchive ? 'btn-info' : 'btn-disabled'}`, '📦 归档')
+    if (canArchive) {
+      archiveBtn.title = '将已完成的书籍移入归档中心'
+      archiveBtn.addEventListener('click', () => {
+        if (confirm(`确定要将《${book.title}》归档吗？归档后将不再出现在主计划和本周清单中。`)) {
+          if (onArchive) onArchive(book.id)
+        }
+      })
+    } else {
+      archiveBtn.title = '只有"已完成"或"已复盘"的书籍才能归档'
+    }
+    
+    const deleteBtn = el('button', 'btn btn-sm btn-danger', '删除')
+    deleteBtn.addEventListener('click', () => {
+      if (confirm(`确定要删除《${book.title}》吗？`)) {
+        onDelete(book.id)
+      }
+    })
+
+    actions.appendChild(editBtn)
+    actions.appendChild(duplicateBtn)
+    if (canArchive) actions.appendChild(archiveBtn)
+    actions.appendChild(deleteBtn)
+  }
+
   card.appendChild(header)
   card.appendChild(meta)
-  card.appendChild(statusBadge)
+  card.appendChild(statusRow)
   card.appendChild(progressSection)
   card.appendChild(info)
   card.appendChild(actions)

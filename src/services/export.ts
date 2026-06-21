@@ -1,10 +1,11 @@
 import type { Book } from '../types/book'
-import { getBooks } from './storage'
+import { getActiveBooks, getArchivedBooks, getBooks } from './storage'
 
 export function exportToJSON(books?: Book[]): void {
-  const exportBooks = books ?? getBooks()
+  const exportBooks = books ?? getActiveBooks()
   const data = {
     exportedAt: new Date().toISOString(),
+    scope: 'active',
     count: exportBooks.length,
     books: exportBooks
   }
@@ -12,8 +13,34 @@ export function exportToJSON(books?: Book[]): void {
   downloadBlob(blob, `reading-plan-${formatDate(new Date())}.json`)
 }
 
+export function exportArchivedToJSON(books?: Book[]): void {
+  const exportBooks = books ?? getArchivedBooks()
+  const data = {
+    exportedAt: new Date().toISOString(),
+    scope: 'archived',
+    count: exportBooks.length,
+    books: exportBooks
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  downloadBlob(blob, `reading-archive-${formatDate(new Date())}.json`)
+}
+
+export function exportAllToJSON(): void {
+  const exportBooks = getBooks()
+  const data = {
+    exportedAt: new Date().toISOString(),
+    scope: 'all',
+    count: exportBooks.length,
+    activeCount: exportBooks.filter(b => !b.isArchived).length,
+    archivedCount: exportBooks.filter(b => b.isArchived).length,
+    books: exportBooks
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  downloadBlob(blob, `reading-all-${formatDate(new Date())}.json`)
+}
+
 export function exportToCSV(books?: Book[]): void {
-  const exportBooks = books ?? getBooks()
+  const exportBooks = books ?? getActiveBooks()
   const headers = [
     '书名', '作者', '主题', '总章节数', '已读章节',
     '计划完成日期', '阅读状态', '重点摘录', '复盘备注',
@@ -53,6 +80,60 @@ export function exportToCSV(books?: Book[]): void {
   downloadBlob(blob, `reading-plan-${formatDate(new Date())}.csv`)
 }
 
+export function exportArchivedToCSV(books?: Book[]): void {
+  const exportBooks = books ?? getArchivedBooks()
+  const headers = [
+    '书名', '作者', '主题', '总章节数', '最终已读章节', '最终进度(%)',
+    '计划完成日期', '阅读状态', '完成时间', '归档时间',
+    '重点摘录(行数)', '重点摘录内容', '复盘备注',
+    '是否收藏', '创建时间', '更新时间'
+  ]
+  
+  const statusMap: Record<string, string> = {
+    not_started: '未开始',
+    reading: '阅读中',
+    completed: '已完成',
+    paused: '已暂停',
+    reviewing: '复盘中',
+    reviewed: '已复盘'
+  }
+
+  const rows = exportBooks.map(book => {
+    const progress = book.totalChapters > 0
+      ? Math.round((book.readChapters / book.totalChapters) * 100)
+      : 0
+    const highlightsCount = book.highlights.trim()
+      ? book.highlights.split('\n').filter(l => l.trim()).length
+      : 0
+    return [
+      book.title,
+      book.author,
+      book.topic,
+      book.totalChapters.toString(),
+      book.readChapters.toString(),
+      progress.toString(),
+      book.plannedDate,
+      statusMap[book.status] || book.status,
+      book.completedAt || '',
+      book.archivedAt || '',
+      highlightsCount.toString(),
+      escapeCSV(book.highlights),
+      escapeCSV(book.reviewNotes),
+      book.isFavorite ? '是' : '否',
+      book.createdAt,
+      book.updatedAt
+    ]
+  })
+
+  const csvContent = [headers, ...rows]
+    .map(row => row.join(','))
+    .join('\n')
+
+  const BOM = '\uFEFF'
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' })
+  downloadBlob(blob, `reading-archive-${formatDate(new Date())}.csv`)
+}
+
 function escapeCSV(text: string): string {
   if (text.includes(',') || text.includes('"') || text.includes('\n')) {
     return `"${text.replace(/"/g, '""')}"`
@@ -90,7 +171,13 @@ export function importFromJSON(file: File): Promise<Book[]> {
           reject(new Error('文件格式不正确'))
           return
         }
-        resolve(books)
+        const validBooks: Book[] = books.map(book => ({
+          ...book,
+          isArchived: book.isArchived ?? false,
+          archivedAt: book.archivedAt ?? null,
+          completedAt: book.completedAt ?? null
+        }))
+        resolve(validBooks)
       } catch (err) {
         reject(err)
       }

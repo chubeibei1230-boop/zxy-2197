@@ -1,8 +1,12 @@
-import type { Book, FilterOptions } from '../types/book'
+import type { Book, FilterOptions, ArchiveFilterOptions, ArchiveSummary } from '../types/book'
 import { calculateProgress } from './validation'
 
 export function filterBooks(books: Book[], filters: FilterOptions): Book[] {
   return books.filter(book => {
+    if (book.isArchived) {
+      return false
+    }
+
     if (filters.topic && book.topic !== filters.topic) {
       return false
     }
@@ -38,6 +42,56 @@ export function filterBooks(books: Book[], filters: FilterOptions): Book[] {
   })
 }
 
+export function filterArchivedBooks(books: Book[], filters: ArchiveFilterOptions): Book[] {
+  return books.filter(book => {
+    if (filters.archiveStatus === 'archived' && !book.isArchived) {
+      return false
+    }
+    if (filters.archiveStatus === 'not_archived' && book.isArchived) {
+      return false
+    }
+
+    if (filters.topic && book.topic !== filters.topic) {
+      return false
+    }
+
+    if (filters.author && book.author !== filters.author) {
+      return false
+    }
+
+    if (filters.status && book.status !== filters.status) {
+      return false
+    }
+
+    if (filters.searchKeyword) {
+      const keyword = filters.searchKeyword.toLowerCase()
+      const inTitle = book.title.toLowerCase().includes(keyword)
+      const inAuthor = book.author.toLowerCase().includes(keyword)
+      const inTopic = book.topic.toLowerCase().includes(keyword)
+      const inHighlights = book.highlights.toLowerCase().includes(keyword)
+      const inReview = book.reviewNotes.toLowerCase().includes(keyword)
+      if (!inTitle && !inAuthor && !inTopic && !inHighlights && !inReview) {
+        return false
+      }
+    }
+
+    return true
+  })
+}
+
+export function getArchiveSummary(book: Book): ArchiveSummary {
+  const progress = calculateProgress(book)
+  const highlightsCount = book.highlights.trim()
+    ? book.highlights.split('\n').filter(line => line.trim()).length
+    : 0
+  return {
+    finalProgress: progress,
+    completionTime: book.completedAt,
+    highlightsCount,
+    hasReviewNotes: book.reviewNotes.trim().length > 0
+  }
+}
+
 export function sortBooks(books: Book[], sortBy: string, sortOrder: 'asc' | 'desc'): Book[] {
   const sorted = [...books]
   
@@ -66,6 +120,20 @@ export function sortBooks(books: Book[], sortBy: string, sortOrder: 'asc' | 'des
       break
     case 'updatedAt':
       sorted.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+      break
+    case 'archivedAt':
+      sorted.sort((a, b) => {
+        if (!a.archivedAt) return 1
+        if (!b.archivedAt) return -1
+        return a.archivedAt.localeCompare(b.archivedAt)
+      })
+      break
+    case 'completedAt':
+      sorted.sort((a, b) => {
+        if (!a.completedAt) return 1
+        if (!b.completedAt) return -1
+        return a.completedAt.localeCompare(b.completedAt)
+      })
       break
     case 'favorite':
       sorted.sort((a, b) => {

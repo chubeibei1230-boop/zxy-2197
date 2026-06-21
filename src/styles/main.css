@@ -177,6 +177,22 @@ body {
   text-decoration: underline;
 }
 
+.btn-info {
+  background: var(--info-color);
+  color: white;
+}
+
+.btn-info:hover {
+  background: #7c3aed;
+}
+
+.btn-disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .export-wrapper {
   position: relative;
 }
@@ -956,5 +972,362 @@ body {
 
   .summary-item strong {
     font-size: 24px;
+  }
+}
+
+/* ==================== Archive Center Styles ==================== */
+
+.archive-center {
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.archive-header {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.archive-back-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  flex-shrink: 0;
+}
+
+.archive-back-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.archive-title-group {
+  flex: 1;
+  min-width: 200px;
+  text-align: center;
+}
+
+.archive-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.archive-subtitle {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.archive-header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.archive-header-actions .export-menu {
+  min-width: 180px;
+}
+
+.archive-summary-section {
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.archive-summary-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
+}
+
+.archive-summary-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.summary-icon {
+  font-size: 32px;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  border-radius: var(--radius-md);
+}
+
+.summary-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.summary-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--info-color);
+  margin-bottom: 2px;
+}
+
+.summary-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.archive-filter-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  margin-bottom: 20px;
+}
+
+.archive-filter-panel {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-search-group {
+  min-width: 280px;
+  flex: 2;
+}
+
+.filter-search-input {
+  min-width: 100%;
+}
+
+.filter-reset-btn {
+  align-self: flex-end;
+  flex-shrink: 0;
+}
+
+.archive-toolbar {
+  max-width: calc(1200px - 48px);
+  margin: 0 auto;
+  margin-bottom: 16px;
+}
+
+.archive-list-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.archive-list-section .book-grid {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+
+.batch-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ==================== Book Card Archive Styles ==================== */
+
+.status-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.archived-badge {
+  background: #ede9fe !important;
+  color: #7c3aed !important;
+  margin-bottom: 0 !important;
+  margin-right: 0 !important;
+}
+
+.book-card.archived {
+  background: linear-gradient(135deg, #fafafa 0%, #f5f3ff 100%);
+  border-color: #ede9fe;
+}
+
+.book-card.archived::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, transparent 50%, #ddd6fe 50%);
+  border-top-right-radius: var(--radius-lg);
+  pointer-events: none;
+}
+
+.completed-date,
+.archived-date {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.archived-date {
+  color: var(--info-color);
+  font-weight: 500;
+}
+
+.book-review {
+  width: 100%;
+}
+
+.review-label {
+  color: #059669;
+  font-size: 12px;
+}
+
+/* ==================== Archive Detail Modal Styles ==================== */
+
+.archive-detail-modal {
+  max-width: 680px;
+}
+
+.archive-detail-body {
+  padding: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.detail-section {
+  margin-bottom: 24px;
+}
+
+.detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.detail-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 24px;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.detail-progress-bar {
+  margin-top: 14px;
+  height: 10px;
+}
+
+.detail-content-block {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.archive-detail-footer {
+  justify-content: space-between;
+}
+
+/* ==================== Header archive nav badge ==================== */
+
+.app-nav .nav-btn:last-child {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.app-nav .nav-btn:last-child.active {
+  background: white;
+  color: var(--info-color);
+}
+
+@media (max-width: 768px) {
+  .archive-header {
+    padding: 16px 20px;
+  }
+
+  .archive-title {
+    font-size: 20px;
+  }
+
+  .archive-summary-section {
+    padding: 0 16px;
+  }
+
+  .archive-filter-section {
+    padding: 0 16px;
+  }
+
+  .archive-list-section {
+    padding: 0 16px;
+  }
+
+  .archive-toolbar {
+    max-width: calc(100% - 32px);
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-back-btn {
+    order: 1;
+  }
+
+  .archive-title-group {
+    order: 2;
+    width: 100%;
+    text-align: left;
+  }
+
+  .archive-header-actions {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .filter-search-group {
+    min-width: 100%;
+  }
+
+  .archive-list-section .book-grid {
+    grid-template-columns: 1fr;
   }
 }
