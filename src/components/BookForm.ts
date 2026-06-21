@@ -46,7 +46,8 @@ export function showBookForm(options: BookFormOptions): void {
     { value: 'reading', label: '阅读中' },
     { value: 'paused', label: '已暂停' },
     { value: 'reviewing', label: '复盘中' },
-    { value: 'completed', label: '已完成' }
+    { value: 'completed', label: '已完成' },
+    { value: 'reviewed', label: '已复盘' }
   ]
   statusOptions.forEach(opt => {
     const option = document.createElement('option')

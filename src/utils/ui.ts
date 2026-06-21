@@ -5,7 +5,8 @@ export const STATUS_LABELS: Record<ReadingStatus, string> = {
   reading: '阅读中',
   completed: '已完成',
   paused: '已暂停',
-  reviewing: '复盘中'
+  reviewing: '复盘中',
+  reviewed: '已复盘'
 }
 
 export const STATUS_COLORS: Record<ReadingStatus, string> = {
@@ -13,7 +14,8 @@ export const STATUS_COLORS: Record<ReadingStatus, string> = {
   reading: '#3b82f6',
   completed: '#22c55e',
   paused: '#f59e0b',
-  reviewing: '#8b5cf6'
+  reviewing: '#8b5cf6',
+  reviewed: '#059669'
 }
 
 export function formatDate(dateStr: string): string {

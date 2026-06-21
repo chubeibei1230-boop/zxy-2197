@@ -1,4 +1,4 @@
-export type ReadingStatus = 'not_started' | 'reading' | 'completed' | 'paused' | 'reviewing'
+export type ReadingStatus = 'not_started' | 'reading' | 'completed' | 'paused' | 'reviewing' | 'reviewed'
 
 export interface Book {
   id: string

@@ -17,8 +17,8 @@ export function createFilterPanel(options: FilterPanelOptions): HTMLElement {
   const statusGroup = createSelectGroup(
     '状态',
     'status',
-    ['', 'not_started', 'reading', 'paused', 'reviewing', 'completed'],
-    ['全部', '未开始', '阅读中', '已暂停', '复盘中', '已完成']
+    ['', 'not_started', 'reading', 'paused', 'reviewing', 'completed', 'reviewed'],
+    ['全部', '未开始', '阅读中', '已暂停', '复盘中', '已完成', '已复盘']
   )
 
   const dateRow = el('div', 'filter-row')

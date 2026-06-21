@@ -8,7 +8,7 @@ export function generateId(): string {
 
 export function getBooks(): Book[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEY)
+    const data = sessionStorage.getItem(STORAGE_KEY)
     return data ? JSON.parse(data) : []
   } catch {
     return []
@@ -16,7 +16,7 @@ export function getBooks(): Book[] {
 }
 
 export function saveBooks(books: Book[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(books))
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(books))
 }
 
 export function addBook(book: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>): Book {

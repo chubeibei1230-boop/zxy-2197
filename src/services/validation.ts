@@ -7,8 +7,9 @@ const TOO_MANY_PLAN_THRESHOLD = 10
 export function validateBook(book: Book, allBooks: Book[]): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const today = new Date().toISOString().split('T')[0]
+  const isDone = book.status === 'completed' || book.status === 'reviewed'
 
-  if (book.plannedDate && book.plannedDate < today && book.status !== 'completed') {
+  if (book.plannedDate && book.plannedDate < today && !isDone) {
     issues.push({
       type: 'overdue',
       severity: 'warning',
@@ -38,11 +39,11 @@ export function validateBook(book: Book, allBooks: Book[]): ValidationIssue[] {
     })
   }
 
-  if (book.status === 'completed' && !book.highlights.trim()) {
+  if (book.status === 'reviewed' && !book.highlights.trim()) {
     issues.push({
       type: 'empty_highlights_reviewed',
       severity: 'warning',
-      message: `《${book.title}》已完成但重点摘录为空`,
+      message: `《${book.title}》已复盘但重点摘录为空`,
       bookIds: [book.id]
     })
   }
@@ -64,7 +65,8 @@ export function validateAllBooks(): ValidationIssue[] {
     const planDate = new Date(b.plannedDate)
     const now = new Date()
     const diffDays = Math.ceil((planDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    return diffDays >= 0 && diffDays <= RECENT_PLAN_THRESHOLD && b.status !== 'completed'
+    const isDone = b.status === 'completed' || b.status === 'reviewed'
+    return diffDays >= 0 && diffDays <= RECENT_PLAN_THRESHOLD && !isDone
   })
 
   if (recentPlans.length > TOO_MANY_PLAN_THRESHOLD) {
@@ -89,10 +91,10 @@ export function getWeeklyPlan(): WeeklyPlanItem[] {
   const items: WeeklyPlanItem[] = []
 
   books.forEach(book => {
-    const isCompleted = book.status === 'completed'
-    const needsReview = isCompleted && (!book.highlights.trim() || !book.reviewNotes.trim())
+    const isDone = book.status === 'completed' || book.status === 'reviewed'
+    const needsReview = book.status === 'completed' && (!book.highlights.trim() || !book.reviewNotes.trim())
     
-    if (isCompleted && !needsReview) return
+    if (isDone && !needsReview) return
 
     const remainingChapters = Math.max(0, book.totalChapters - book.readChapters)
     let priority = 0
@@ -123,7 +125,7 @@ export function getWeeklyPlan(): WeeklyPlanItem[] {
       reason += ' · 重点书目'
     }
 
-    if (book.plannedDate && !isCompleted) {
+    if (book.plannedDate && !isDone) {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const planDate = new Date(book.plannedDate)

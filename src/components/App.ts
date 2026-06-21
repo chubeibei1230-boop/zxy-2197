@@ -89,12 +89,14 @@ export class App {
     const exportMenu = el('div', 'export-menu')
     const exportJsonBtn = el('button', 'export-menu-item', '导出 JSON')
     exportJsonBtn.addEventListener('click', () => {
-      exportToJSON()
+      const filtered = this.getFilteredAndSortedBooks()
+      exportToJSON(filtered)
       exportMenu.classList.remove('open')
     })
     const exportCsvBtn = el('button', 'export-menu-item', '导出 CSV')
     exportCsvBtn.addEventListener('click', () => {
-      exportToCSV()
+      const filtered = this.getFilteredAndSortedBooks()
+      exportToCSV(filtered)
       exportMenu.classList.remove('open')
     })
     exportMenu.appendChild(exportJsonBtn)
@@ -186,7 +188,8 @@ export class App {
         { value: 'reading', label: '批量设为阅读中' },
         { value: 'paused', label: '批量设为已暂停' },
         { value: 'reviewing', label: '批量设为复盘中' },
-        { value: 'completed', label: '批量设为已完成' }
+        { value: 'completed', label: '批量设为已完成' },
+        { value: 'reviewed', label: '批量设为已复盘' }
       ]
       const defaultOption = document.createElement('option')
       defaultOption.value = ''

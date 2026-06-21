@@ -1,19 +1,19 @@
 import type { Book } from '../types/book'
 import { getBooks } from './storage'
 
-export function exportToJSON(): void {
-  const books = getBooks()
+export function exportToJSON(books?: Book[]): void {
+  const exportBooks = books ?? getBooks()
   const data = {
     exportedAt: new Date().toISOString(),
-    count: books.length,
-    books
+    count: exportBooks.length,
+    books: exportBooks
   }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   downloadBlob(blob, `reading-plan-${formatDate(new Date())}.json`)
 }
 
-export function exportToCSV(): void {
-  const books = getBooks()
+export function exportToCSV(books?: Book[]): void {
+  const exportBooks = books ?? getBooks()
   const headers = [
     '书名', '作者', '主题', '总章节数', '已读章节',
     '计划完成日期', '阅读状态', '重点摘录', '复盘备注',
@@ -25,10 +25,11 @@ export function exportToCSV(): void {
     reading: '阅读中',
     completed: '已完成',
     paused: '已暂停',
-    reviewing: '复盘中'
+    reviewing: '复盘中',
+    reviewed: '已复盘'
   }
 
-  const rows = books.map(book => [
+  const rows = exportBooks.map(book => [
     book.title,
     book.author,
     book.topic,
