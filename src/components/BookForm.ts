@@ -13,6 +13,9 @@ export function showBookForm(options: BookFormOptions): void {
   const { book, onSuccess, onCancel } = options
   const isEdit = !!book
 
+  let milestonesDraft: Milestone[] = [...(book?.milestones || [])]
+  const TMP_BOOK_ID = '__tmp_new_book__'
+
   const overlay = el('div', 'modal-overlay')
   const modal = el('div', 'modal')
   const header = el('div', 'modal-header')
@@ -74,31 +77,30 @@ export function showBookForm(options: BookFormOptions): void {
   const milestoneSection = el('div', 'form-group milestone-form-section')
   const milestoneHeader = el('div', 'milestone-form-header')
   const milestoneTitle = el('label', 'form-label', '🎯 阅读里程碑')
-  const milestoneCount = el('span', 'milestone-form-count', 
-    book ? `${(book.milestones || []).length} 个里程碑` : '添加后可设置里程碑')
+  const milestoneCount = el('span', 'milestone-form-count',
+    milestonesDraft.length > 0 ? `${milestonesDraft.length} 个里程碑` : '暂无里程碑')
   milestoneHeader.appendChild(milestoneTitle)
   milestoneHeader.appendChild(milestoneCount)
 
   const milestoneList = el('div', 'milestone-form-list')
-  if (book && book.milestones && book.milestones.length > 0) {
-    book.milestones.forEach(m => {
-      milestoneList.appendChild(createMilestoneFormItem(book.id, m, refreshMilestones))
-    })
-  } else {
-    const emptyHint = el('div', 'milestone-form-empty', '暂无里程碑，点击下方按钮添加')
-    milestoneList.appendChild(emptyHint)
-  }
+  renderMilestoneList()
 
   const addMilestoneBtn = el('button', 'btn btn-outline btn-sm milestone-add-btn', '+ 添加里程碑') as HTMLButtonElement
   addMilestoneBtn.type = 'button'
   addMilestoneBtn.addEventListener('click', () => {
-    if (!book) {
-      alert('请先保存书籍后再添加里程碑')
-      return
-    }
+    const isTemporary = !isEdit
     showMilestoneForm({
-      bookId: book.id,
-      onSuccess: () => refreshMilestones(),
+      bookId: book?.id || TMP_BOOK_ID,
+      isTemporary,
+      onTemporarySave: (m) => {
+        const idx = milestonesDraft.findIndex(x => x.id === m.id)
+        if (idx >= 0) milestonesDraft[idx] = m
+        else milestonesDraft.push(m)
+      },
+      onTemporaryDelete: (mid) => {
+        milestonesDraft = milestonesDraft.filter(x => x.id !== mid)
+      },
+      onSuccess: () => renderMilestoneList(),
       onCancel: () => {}
     })
   })
@@ -163,6 +165,25 @@ export function showBookForm(options: BookFormOptions): void {
       return
     }
 
+    const progress = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0
+    const now = new Date().toISOString()
+    const finalMilestones = milestonesDraft.map(m => {
+      let status = m.status
+      let completedAt = m.completedAt
+      if (status === 'pending' && m.progressThreshold > 0 && progress >= m.progressThreshold) {
+        status = 'completed'
+        completedAt = now
+      }
+      return {
+        ...m,
+        id: m.id.startsWith('tmp_') ? generateBookFormId() : m.id,
+        status,
+        completedAt,
+        createdAt: m.createdAt || now,
+        updatedAt: now
+      }
+    })
+
     const bookData = {
       title,
       author: (formData.get('author') as string).trim(),
@@ -177,29 +198,45 @@ export function showBookForm(options: BookFormOptions): void {
     }
 
     if (isEdit && book) {
-      updateBook(book.id, bookData)
+      updateBook(book.id, { ...bookData, milestones: finalMilestones })
     } else {
-      addBook(bookData)
+      addBook(bookData, finalMilestones)
     }
 
     closeModal()
     onSuccess()
   }
 
-  function refreshMilestones(): void {
-    const freshBook = book ? getBookById(book.id) : null
+  function renderMilestoneList(): void {
     milestoneList.innerHTML = ''
-    if (freshBook && freshBook.milestones && freshBook.milestones.length > 0) {
-      milestoneCount.textContent = `${freshBook.milestones.length} 个里程碑`
-      freshBook.milestones.forEach((m: Milestone) => {
-        milestoneList.appendChild(createMilestoneFormItem(freshBook.id, m, refreshMilestones))
-      })
-    } else {
-      milestoneCount.textContent = book ? '0 个里程碑' : '添加后可设置里程碑'
+    milestoneCount.textContent = milestonesDraft.length > 0
+      ? `${milestonesDraft.length} 个里程碑`
+      : '暂无里程碑'
+
+    if (milestonesDraft.length === 0) {
       const emptyHint = el('div', 'milestone-form-empty', '暂无里程碑，点击下方按钮添加')
       milestoneList.appendChild(emptyHint)
+      return
     }
-    onSuccess()
+
+    milestonesDraft.forEach(m => {
+      const isTemporary = !isEdit
+      const item = createMilestoneFormItem(
+        book?.id || TMP_BOOK_ID,
+        m,
+        () => renderMilestoneList(),
+        isTemporary,
+        (updated) => {
+          const idx = milestonesDraft.findIndex(x => x.id === updated.id)
+          if (idx >= 0) milestonesDraft[idx] = updated
+          else milestonesDraft.push(updated)
+        },
+        (mid) => {
+          milestonesDraft = milestonesDraft.filter(x => x.id !== mid)
+        }
+      )
+      milestoneList.appendChild(item)
+    })
   }
 }
 
@@ -228,7 +265,14 @@ function createTextareaGroup(label: string, name: string, value: string, rows: n
   return group
 }
 
-function createMilestoneFormItem(bookId: string, milestone: Milestone, onRefresh: () => void): HTMLElement {
+function createMilestoneFormItem(
+  bookId: string,
+  milestone: Milestone,
+  onRefresh: () => void,
+  isTemporary = false,
+  onTemporarySave?: (milestone: Milestone) => void,
+  onTemporaryDelete?: (milestoneId: string) => void
+): HTMLElement {
   const item = el('div', `milestone-form-item milestone-status-${milestone.status}`)
   
   const info = el('div', 'milestone-form-item-info')
@@ -260,6 +304,9 @@ function createMilestoneFormItem(bookId: string, milestone: Milestone, onRefresh
     showMilestoneForm({
       bookId,
       milestone,
+      isTemporary,
+      onTemporarySave,
+      onTemporaryDelete,
       onSuccess: onRefresh,
       onCancel: () => {}
     })
@@ -270,4 +317,8 @@ function createMilestoneFormItem(bookId: string, milestone: Milestone, onRefresh
   item.appendChild(meta)
   item.appendChild(actions)
   return item
+}
+
+function generateBookFormId(): string {
+  return 'b_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }

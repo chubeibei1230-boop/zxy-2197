@@ -13,12 +13,13 @@ export interface Milestone {
   completedAt: string | null
   notes: string
   progressThreshold: number
+  autoCompleted?: boolean
   createdAt: string
   updatedAt: string
 }
 
 export interface MilestoneFilterOptions {
-  category: 'upcoming' | 'overdue' | 'completed'
+  category: 'upcoming' | 'overdue' | 'completed' | 'skipped'
   bookKeyword: string
   sortBy: 'expectedDate' | 'bookTitle' | 'progressThreshold' | 'createdAt'
   sortOrder: 'asc' | 'desc'

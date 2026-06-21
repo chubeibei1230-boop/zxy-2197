@@ -20,7 +20,8 @@ export function getBooks(): Book[] {
         status: m.status ?? 'pending',
         completedAt: m.completedAt ?? null,
         notes: m.notes ?? '',
-        progressThreshold: m.progressThreshold ?? 0
+        progressThreshold: m.progressThreshold ?? 0,
+        autoCompleted: m.autoCompleted ?? false
       }))
     }))
   } catch {
@@ -40,10 +41,18 @@ export function saveBooks(books: Book[]): void {
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(books))
 }
 
-export function addBook(book: Omit<Book, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'archivedAt' | 'completedAt' | 'milestones'>): Book {
+export function addBook(
+  book: Omit<Book, 'id' | 'createdAt' | 'updatedAt' | 'isArchived' | 'archivedAt' | 'completedAt' | 'milestones'>,
+  milestones?: Milestone[]
+): Book {
   const books = getBooks()
   const now = new Date().toISOString()
   const completedAt = (book.status === 'completed' || book.status === 'reviewed') ? now : null
+  let finalMilestones: Milestone[] = (milestones || []).map(m => ({
+    ...m,
+    createdAt: m.createdAt || now,
+    updatedAt: now
+  }))
   const newBook: Book = {
     ...book,
     id: generateId(),
@@ -52,7 +61,7 @@ export function addBook(book: Omit<Book, 'id' | 'createdAt' | 'updatedAt' | 'isA
     isArchived: false,
     archivedAt: null,
     completedAt,
-    milestones: []
+    milestones: finalMilestones
   }
   books.push(newBook)
   saveBooks(books)
@@ -74,27 +83,43 @@ export function updateBook(id: string, updates: Partial<Book>): Book | null {
     completedAt = null
   }
 
-  let milestones = original.milestones || []
+  let milestones: Milestone[] = updates.milestones !== undefined
+    ? [...updates.milestones]
+    : [...(original.milestones || [])]
 
-  if (updates.status === 'completed' || updates.status === 'reviewed') {
-    milestones = milestones.map(m => {
-      if (m.status === 'pending') {
-        return { ...m, status: 'completed' as const, completedAt: now, updatedAt: now }
-      }
-      return m
-    })
-  }
+  const statusChanged = updates.status !== undefined && updates.status !== original.status
+  const progressChanged = updates.readChapters !== undefined || updates.totalChapters !== undefined
 
-  if (updates.readChapters !== undefined || updates.totalChapters !== undefined) {
+  if (progressChanged) {
     const newRead = updates.readChapters !== undefined ? updates.readChapters : original.readChapters
     const newTotal = updates.totalChapters !== undefined ? updates.totalChapters : original.totalChapters
     const progress = newTotal > 0 ? Math.round((newRead / newTotal) * 100) : 0
+
     milestones = milestones.map(m => {
-      if (m.status === 'pending' && m.progressThreshold > 0 && progress >= m.progressThreshold) {
-        return { ...m, status: 'completed' as const, completedAt: now, updatedAt: now }
+      if (m.progressThreshold <= 0) return { ...m, updatedAt: now }
+
+      if (m.status === 'pending' && progress >= m.progressThreshold) {
+        return {
+          ...m,
+          status: 'completed' as const,
+          completedAt: now,
+          autoCompleted: true,
+          updatedAt: now
+        }
       }
-      return m
+      if (m.status === 'completed' && m.autoCompleted && progress < m.progressThreshold) {
+        return {
+          ...m,
+          status: 'pending' as const,
+          completedAt: null,
+          autoCompleted: false,
+          updatedAt: now
+        }
+      }
+      return { ...m, updatedAt: now }
     })
+  } else if (!updates.milestones) {
+    milestones = milestones.map(m => ({ ...m, updatedAt: now }))
   }
   
   books[index] = {
@@ -312,7 +337,7 @@ export function getNextPendingMilestone(book: Book): Milestone | null {
   return pending[0]
 }
 
-export function getMilestonesByCategory(category: 'upcoming' | 'overdue' | 'completed'): { book: Book; milestone: Milestone }[] {
+export function getMilestonesByCategory(category: 'upcoming' | 'overdue' | 'completed' | 'skipped'): { book: Book; milestone: Milestone }[] {
   const all = getAllMilestones()
   const today = new Date().toISOString().split('T')[0]
   return all.filter(({ milestone }) => {
@@ -323,6 +348,8 @@ export function getMilestonesByCategory(category: 'upcoming' | 'overdue' | 'comp
         return milestone.status === 'pending' && milestone.expectedDate && milestone.expectedDate < today
       case 'completed':
         return milestone.status === 'completed'
+      case 'skipped':
+        return milestone.status === 'skipped'
       default:
         return false
     }

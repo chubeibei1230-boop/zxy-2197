@@ -195,7 +195,8 @@ export function importFromJSON(file: File): Promise<Book[]> {
             status: m.status ?? 'pending',
             completedAt: m.completedAt ?? null,
             notes: m.notes ?? '',
-            progressThreshold: m.progressThreshold ?? 0
+            progressThreshold: m.progressThreshold ?? 0,
+            autoCompleted: m.autoCompleted ?? false
           }))
         }))
         resolve(validBooks)

@@ -7,10 +7,13 @@ export interface MilestoneFormOptions {
   milestone?: Milestone
   onSuccess: () => void
   onCancel: () => void
+  onTemporarySave?: (milestone: Milestone) => void
+  onTemporaryDelete?: (milestoneId: string) => void
+  isTemporary?: boolean
 }
 
 export function showMilestoneForm(options: MilestoneFormOptions): void {
-  const { bookId, milestone, onSuccess, onCancel } = options
+  const { bookId, milestone, onSuccess, onCancel, onTemporarySave, onTemporaryDelete, isTemporary } = options
   const isEdit = !!milestone
 
   const overlay = el('div', 'modal-overlay')
@@ -75,7 +78,11 @@ export function showMilestoneForm(options: MilestoneFormOptions): void {
     deleteBtn.type = 'button'
     deleteBtn.addEventListener('click', () => {
       if (confirm('确定要删除此里程碑吗？')) {
-        deleteMilestone(bookId, milestone.id)
+        if (isTemporary && onTemporaryDelete) {
+          onTemporaryDelete(milestone.id)
+        } else {
+          deleteMilestone(bookId, milestone.id)
+        }
         closeModal()
         onSuccess()
       }
@@ -116,16 +123,34 @@ export function showMilestoneForm(options: MilestoneFormOptions): void {
       alert('请填写里程碑名称')
       return
     }
+    const now = new Date().toISOString()
     const data = {
       title: mTitle,
       targetDescription: (formData.get('targetDescription') as string).trim(),
       expectedDate: formData.get('expectedDate') as string,
       progressThreshold: parseInt(formData.get('progressThreshold') as string) || 0,
       notes: (formData.get('mNotes') as string).trim(),
-      status: formData.get('mStatus') as MilestoneStatus
+      status: formData.get('mStatus') as MilestoneStatus,
+      autoCompleted: (formData.get('mStatus') as MilestoneStatus) === 'completed'
+        ? (milestone?.autoCompleted ?? false)
+        : false
     }
 
-    if (isEdit && milestone) {
+    if (isTemporary && onTemporarySave) {
+      const id = milestone?.id || 'tmp_' + Math.random().toString(36).slice(2, 10)
+      const completedAt = data.status === 'completed'
+        ? (milestone?.completedAt || now)
+        : null
+      const tmpMilestone: Milestone = {
+        ...milestone,
+        ...data,
+        id,
+        createdAt: milestone?.createdAt || now,
+        updatedAt: now,
+        completedAt
+      }
+      onTemporarySave(tmpMilestone)
+    } else if (isEdit && milestone) {
       updateMilestone(bookId, milestone.id, data)
     } else {
       addMilestone(bookId, data)

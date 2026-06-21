@@ -20,7 +20,7 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
   const container = el('div', 'milestone-center')
 
   const state = {
-    category: 'upcoming' as 'upcoming' | 'overdue' | 'completed',
+    category: 'upcoming' as 'upcoming' | 'overdue' | 'completed' | 'skipped',
     bookKeyword: '',
     sortBy: 'expectedDate' as 'expectedDate' | 'bookTitle' | 'progressThreshold' | 'createdAt',
     sortOrder: 'asc' as 'asc' | 'desc',
@@ -66,13 +66,15 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
     const upcoming = getMilestonesByCategory('upcoming').length
     const overdue = getMilestonesByCategory('overdue').length
     const completed = getMilestonesByCategory('completed').length
+    const skipped = getMilestonesByCategory('skipped').length
 
     const section = el('div', 'milestone-center-summary-section')
 
     const cards = [
       { icon: '📅', label: '即将到期', value: upcoming, unit: '个', className: 'upcoming' },
       { icon: '⚠️', label: '已逾期', value: overdue, unit: '个', className: 'overdue' },
-      { icon: '✅', label: '已完成', value: completed, unit: '个', className: 'completed' }
+      { icon: '✅', label: '已完成', value: completed, unit: '个', className: 'completed' },
+      { icon: '⏭️', label: '已跳过', value: skipped, unit: '个', className: 'skipped' }
     ]
 
     cards.forEach(card => {
@@ -87,7 +89,7 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
       cardEl.appendChild(contentEl)
       cardEl.style.cursor = 'pointer'
       cardEl.addEventListener('click', () => {
-        state.category = card.className as 'upcoming' | 'overdue' | 'completed'
+        state.category = card.className as 'upcoming' | 'overdue' | 'completed' | 'skipped'
         state.selectedIds.clear()
         render()
       })
@@ -99,10 +101,11 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
 
   function createTabs(): HTMLElement {
     const tabContainer = el('div', 'milestone-tabs')
-    const tabs: { key: 'upcoming' | 'overdue' | 'completed'; label: string; icon: string }[] = [
+    const tabs: { key: 'upcoming' | 'overdue' | 'completed' | 'skipped'; label: string; icon: string }[] = [
       { key: 'upcoming', label: '即将到期', icon: '📅' },
       { key: 'overdue', label: '已逾期', icon: '⚠️' },
-      { key: 'completed', label: '已完成', icon: '✅' }
+      { key: 'completed', label: '已完成', icon: '✅' },
+      { key: 'skipped', label: '已跳过', icon: '⏭️' }
     ]
 
     tabs.forEach(tab => {
@@ -204,7 +207,7 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
     leftGroup.appendChild(selectAllLabel)
     leftGroup.appendChild(selectedCount)
 
-    if (state.selectedIds.size > 0 && state.category !== 'completed') {
+    if (state.selectedIds.size > 0 && state.category !== 'completed' && state.category !== 'skipped') {
       const batchBtn = el('button', 'btn btn-sm btn-primary batch-btn',
         `✅ 批量完成 (${state.selectedIds.size})`)
       batchBtn.addEventListener('click', () => {
@@ -229,13 +232,19 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
     if (items.length === 0) {
       const empty = el('div', 'empty-state')
       const categoryLabel = state.category === 'upcoming' ? '即将到期'
-        : state.category === 'overdue' ? '已逾期' : '已完成'
+        : state.category === 'overdue' ? '已逾期'
+        : state.category === 'skipped' ? '已跳过' : '已完成'
+      const icon = state.category === 'completed' ? '🎉'
+        : state.category === 'skipped' ? '⏭️' : '📭'
+      const hint = state.category === 'completed'
+        ? '完成里程碑后它们会出现在这里'
+        : state.category === 'skipped'
+          ? '跳过或失效的里程碑会出现在这里，可重开恢复'
+          : '为书籍添加里程碑后，到期提醒会出现在这里'
       empty.innerHTML = `
-        <div class="empty-icon">${state.category === 'completed' ? '🎉' : '📭'}</div>
+        <div class="empty-icon">${icon}</div>
         <p>没有${categoryLabel}的里程碑</p>
-        <p class="empty-hint">${state.category === 'completed'
-          ? '完成里程碑后它们会出现在这里'
-          : '为书籍添加里程碑后，到期提醒会出现在这里'}</p>
+        <p class="empty-hint">${hint}</p>
       `
       section.appendChild(empty)
       return section
@@ -251,7 +260,10 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
 
     const countInfo = el('div', 'list-footer')
     const totalInCategory = getMilestonesByCategory(state.category).length
-    countInfo.textContent = `当前显示 ${items.length} / 共 ${totalInCategory} 个${state.category === 'upcoming' ? '即将到期' : state.category === 'overdue' ? '已逾期' : '已完成'}里程碑`
+    const categoryText = state.category === 'upcoming' ? '即将到期'
+      : state.category === 'overdue' ? '已逾期'
+      : state.category === 'skipped' ? '已跳过' : '已完成'
+    countInfo.textContent = `当前显示 ${items.length} / 共 ${totalInCategory} 个${categoryText}里程碑`
     section.appendChild(countInfo)
 
     return section
@@ -335,7 +347,7 @@ export function createMilestoneCenter(options: MilestoneCenterOptions): HTMLElem
         render()
       })
       actions.appendChild(completeBtn)
-    } else if (milestone.status === 'completed') {
+    } else if (milestone.status === 'completed' || milestone.status === 'skipped') {
       const reopenBtn = el('button', 'btn btn-sm btn-outline', '重开')
       reopenBtn.addEventListener('click', () => {
         updateMilestone(book.id, milestone.id, { status: 'pending' })

@@ -1535,7 +1535,7 @@ body {
   margin: 24px auto;
   padding: 0 24px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 
@@ -1567,8 +1567,16 @@ body {
   background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%);
 }
 
-.milestone-summary-card.card-upcoming .summary-value {
-  color: var(--primary-color);
+.milestone-summary-card.card-skipped .summary-icon {
+  background: linear-gradient(135deg, #f3f4f6 0%, #d1d5db 100%);
+}
+
+.milestone-summary-card.card-completed .summary-value {
+  color: var(--success-color);
+}
+
+.milestone-summary-card.card-skipped .summary-value {
+  color: var(--text-muted);
 }
 
 .milestone-summary-card.card-overdue .summary-value {
@@ -1686,6 +1694,12 @@ body {
 .milestone-card.category-completed {
   border-left-color: var(--success-color);
   opacity: 0.85;
+}
+
+.milestone-card.category-skipped {
+  border-left-color: var(--text-muted);
+  opacity: 0.75;
+  background: linear-gradient(to right, #f3f4f6, white);
 }
 
 .milestone-select {
